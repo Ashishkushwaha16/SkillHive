@@ -1,0 +1,9 @@
+{
+  "name": "skillhive",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Basic MERN starter structure for SkillHive",
+  "scripts": {
+    "server": "npm --prefix server run dev"
+  }
+}

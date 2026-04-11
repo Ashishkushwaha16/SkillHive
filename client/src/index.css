@@ -1,0 +1,43 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --brand-50: #eff6ff;
+    --brand-100: #dbeafe;
+    --brand-600: #2563eb;
+    --brand-700: #1d4ed8;
+    --ink-900: #0f172a;
+    --ink-700: #334155;
+  }
+}
+
+@layer components {
+  .ui-card {
+    @apply rounded-2xl border border-slate-200 bg-white shadow-sm;
+  }
+
+  .ui-card-soft {
+    @apply rounded-2xl border border-blue-100 bg-gradient-to-br from-blue-50 to-white shadow-sm;
+  }
+
+  .ui-input {
+    @apply w-full rounded-xl border border-slate-300 px-4 py-3 outline-none transition-all duration-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100;
+  }
+
+  .ui-btn-primary {
+    @apply rounded-xl bg-blue-600 px-4 py-3 font-semibold text-white transition-all duration-200 hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60;
+  }
+
+  .ui-btn-secondary {
+    @apply rounded-xl border border-slate-300 bg-white px-4 py-3 font-semibold text-slate-700 transition-colors duration-200 hover:bg-slate-100;
+  }
+}
+
+body {
+  margin: 0;
+  color: var(--ink-900);
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  background-color: #f8fbff;
+}

@@ -1,3 +1,5 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700;800&family=Manrope:wght@400;500;600;700;800&display=swap");
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -10,16 +12,45 @@
     --brand-700: #1d4ed8;
     --ink-900: #0f172a;
     --ink-700: #334155;
+    color-scheme: light;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    color: var(--ink-900);
+    font-family: "Manrope", "Inter Tight", sans-serif;
+    background:
+      radial-gradient(circle at top left, rgba(37, 99, 235, 0.12), transparent 28%),
+      radial-gradient(circle at top right, rgba(14, 165, 233, 0.08), transparent 24%),
+      linear-gradient(180deg, #f8fbff 0%, #eef4ff 48%, #f8fafc 100%);
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body::selection {
+    background: #bfdbfe;
+    color: #0f172a;
+  }
+
+  a {
+    text-decoration-thickness: 0.08em;
+    text-underline-offset: 0.18em;
   }
 }
 
 @layer components {
   .ui-card {
-    @apply rounded-2xl border border-slate-200 bg-white shadow-sm;
+    @apply rounded-2xl border border-slate-200 bg-white shadow-[0_20px_60px_-25px_rgba(15,23,42,0.18)];
   }
 
   .ui-card-soft {
-    @apply rounded-2xl border border-blue-100 bg-gradient-to-br from-blue-50 to-white shadow-sm;
+    @apply rounded-2xl border border-blue-100 bg-gradient-to-br from-white via-blue-50 to-sky-50 shadow-[0_24px_80px_-32px_rgba(37,99,235,0.35)];
   }
 
   .ui-input {
@@ -36,8 +67,5 @@
 }
 
 body {
-  margin: 0;
-  color: var(--ink-900);
-  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
-  background-color: #f8fbff;
+  line-height: 1.6;
 }

@@ -5,10 +5,15 @@ const API_BASE_URL = API_ENDPOINTS.users;
 const getAuthHeaders = () => {
   const token = localStorage.getItem("token");
 
-  return {
+  const headers = {
     "Content-Type": "application/json",
-    Authorization: `Bearer ${token}`,
   };
+
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
+  return headers;
 };
 
 export const getProfile = async () => {
@@ -158,7 +163,7 @@ export const sendMessage = async (messageData) => {
   const result = await response.json();
 
   if (!response.ok) {
-    throw new Error(result.error || "Failed to send message");
+    throw new Error(result.message || result.error || "Failed to send message");
   }
 
   return result;
@@ -173,7 +178,7 @@ export const getMessages = async () => {
   const result = await response.json();
 
   if (!response.ok) {
-    throw new Error(result.error || "Failed to load messages");
+    throw new Error(result.message || result.error || "Failed to load messages");
   }
 
   return result;

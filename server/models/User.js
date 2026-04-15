@@ -18,9 +18,6 @@ const userSchema = new mongoose.Schema(
       required: true,
       minlength: 6,
     },
-    bio: {
-      type: String,
-    },
     about: {
       type: String,
       maxlength: 200,
@@ -51,6 +48,11 @@ const userSchema = new mongoose.Schema(
     rating: {
       type: Number,
       default: 0,
+    },
+    role: {
+      type: String,
+      enum: ["user", "admin"],
+      default: "user",
     },
   },
   {

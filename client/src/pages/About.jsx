@@ -49,48 +49,81 @@ const About = () => {
 
   return (
     <PageLayout title="About SkillHive" subtitle="A community where learners and mentors grow together.">
-      <div className="grid gap-6 md:grid-cols-2">
-        <div className="ui-card p-6 text-slate-700">
-          <p>
-            SkillHive is a peer-to-peer learning platform where users can learn and teach skills by connecting
-            with mentors.
-          </p>
-          <p className="mt-4 text-sm text-slate-600">
-            Total users on platform: <span className="font-semibold text-slate-900">{data?.stats?.totalUsers ?? 0}</span>
-          </p>
-        </div>
+      <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
+        <section className="ui-card p-8">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="max-w-2xl">
+              <p className="text-sm font-semibold uppercase tracking-[0.24em] text-blue-700">Platform story</p>
+              <h2 className="mt-3 text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl">
+                Built for practical learning, mentorship, and faster skill growth.
+              </h2>
+              <p className="mt-4 max-w-xl text-sm leading-7 text-slate-600 sm:text-base">
+                SkillHive helps people discover mentors, share expertise, and organize meaningful learning
+                connections without the noise of a generic social app.
+              </p>
+            </div>
 
-        <div className="ui-card p-6 text-slate-700">
-          <h2 className="text-lg font-semibold text-slate-900">Developer</h2>
+            <div className="grid min-w-[220px] gap-3 sm:grid-cols-2 lg:grid-cols-1">
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <p className="text-xs uppercase tracking-[0.24em] text-slate-500">Total users</p>
+                <p className="mt-2 text-3xl font-semibold text-slate-900">{data?.stats?.totalUsers ?? 0}</p>
+              </div>
+              <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4">
+                <p className="text-xs uppercase tracking-[0.24em] text-blue-700">Connection state</p>
+                <p className="mt-2 text-lg font-semibold text-slate-900 capitalize">{connectionState}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-8 grid gap-4 sm:grid-cols-3">
+            {[
+              { label: "Mentor discovery", value: "Fast search and filtering" },
+              { label: "Direct contact", value: "Simple requests and follow-ups" },
+              { label: "Learning focus", value: "Skills, goals, and progress" },
+            ].map((item) => (
+              <div key={item.label} className="rounded-2xl border border-slate-200 bg-white p-4">
+                <p className="text-sm font-semibold text-slate-900">{item.label}</p>
+                <p className="mt-2 text-sm leading-6 text-slate-600">{item.value}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <aside className="ui-card-soft p-6">
+          <p className="text-sm font-semibold uppercase tracking-[0.24em] text-blue-700">Developer</p>
           {data?.developer ? (
-            <>
-              <p className="mt-3"><span className="font-semibold">Name:</span> {data.developer.name}</p>
-              <p><span className="font-semibold">Email:</span> {data.developer.email}</p>
+            <div className="mt-4 space-y-4">
+              <div>
+                <h3 className="text-2xl font-semibold text-slate-900">{data.developer.name}</h3>
+                <p className="mt-1 text-sm text-slate-600">{data.developer.email}</p>
+              </div>
+
+              <p className="text-sm leading-6 text-slate-600">
+                Reach out to the developer directly if you need support, want to share feedback, or have a
+                collaboration request.
+              </p>
+
               <button
                 type="button"
                 onClick={handleConnectDeveloper}
                 disabled={connecting || connectionState === "pending" || connectionState === "connected"}
-                className={`mt-4 rounded-xl px-4 py-2 font-semibold text-white transition-colors duration-200 ${
-                  connectionState === "connected"
-                    ? "cursor-not-allowed bg-emerald-500"
-                    : connectionState === "pending"
-                      ? "cursor-not-allowed bg-slate-400"
-                      : "bg-blue-600 hover:bg-blue-700"
+                className={`ui-btn-primary w-full justify-center ${
+                  connectionState === "connected" || connectionState === "pending" ? "cursor-not-allowed opacity-80" : ""
                 }`}
               >
                 {connectionState === "connected"
                   ? "Connected"
                   : connectionState === "pending"
-                    ? "Pending"
+                    ? "Request pending"
                     : connecting
-                      ? "Sending..."
-                      : "Connect with Developer"}
+                      ? "Sending request..."
+                      : "Connect with developer"}
               </button>
-            </>
+            </div>
           ) : (
-            <p className="mt-3 text-sm text-slate-600">Developer info not available yet.</p>
+            <p className="mt-4 text-sm text-slate-600">Developer info not available yet.</p>
           )}
-        </div>
+        </aside>
       </div>
 
       {message.text ? (

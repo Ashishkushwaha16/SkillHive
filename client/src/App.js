@@ -11,7 +11,6 @@ import Profile from "./pages/Profile";
 import Explore from "./pages/Explore";
 import About from "./pages/About";
 import FAQ from "./pages/FAQ";
-import ExploreMentors from "./pages/ExploreMentors";
 import Contact from "./pages/Contact";
 import HelpCentre from "./pages/HelpCentre";
 import Leaderboard from "./pages/Leaderboard";
@@ -20,7 +19,7 @@ import Messages from "./pages/Messages";
 import NotFound from "./pages/NotFound";
 import usePageTitle from "./hooks/usePageTitle";
 
-const AppShell = ({ isAuthenticated, onLogout }) => {
+const AppShell = ({ isAuthenticated, isAdmin, onLogout }) => {
   const location = useLocation();
   const isAuthPage = location.pathname === "/login" || location.pathname === "/register";
   const isHomePage = location.pathname === "/";
@@ -33,7 +32,6 @@ const AppShell = ({ isAuthenticated, onLogout }) => {
     "/profile": "Profile",
     "/explore": "Explore",
     "/faq": "FAQ",
-    "/mentors": "Mentors",
     "/leaderboard": "Leaderboard",
     "/about": "About",
     "/contact": "Contact",
@@ -45,7 +43,13 @@ const AppShell = ({ isAuthenticated, onLogout }) => {
 
   return (
     <div className="flex min-h-screen flex-col bg-gradient-to-b from-[#f8fbff] via-[#eef4ff] to-[#f6faf8]">
-      {!isAuthPage && <Navbar isAuthenticated={isAuthenticated} onLogout={onLogout} />}
+      {!isAuthPage && (
+        <Navbar
+          isAuthenticated={isAuthenticated}
+          isAdmin={isAdmin}
+          onLogout={onLogout}
+        />
+      )}
 
       <main className={isAuthPage ? "flex flex-1 items-center justify-center px-4 py-10" : isHomePage ? "flex-1" : "flex-1 pb-10"}>
         <Routes>
@@ -56,11 +60,17 @@ const AppShell = ({ isAuthenticated, onLogout }) => {
           <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
           <Route path="/explore" element={<ProtectedRoute><Explore /></ProtectedRoute>} />
           <Route path="/faq" element={<FAQ />} />
-          <Route path="/mentors" element={<ExploreMentors />} />
           <Route path="/leaderboard" element={<Leaderboard />} />
           <Route path="/about" element={<About />} />
           <Route path="/contact" element={<Contact />} />
-          <Route path="/messages" element={<ProtectedRoute><Messages /></ProtectedRoute>} />
+          <Route
+            path="/messages"
+            element={(
+              <ProtectedRoute requiredRole="admin">
+                <Messages />
+              </ProtectedRoute>
+            )}
+          />
           <Route path="/help" element={<HelpCentre />} />
           <Route path="/404" element={<NotFound />} />
           <Route path="*" element={<Navigate to="/404" replace />} />
@@ -74,11 +84,30 @@ const AppShell = ({ isAuthenticated, onLogout }) => {
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(Boolean(localStorage.getItem("token")));
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  const syncAuthState = () => {
+    const token = localStorage.getItem("token");
+    const storedUser = localStorage.getItem("user");
+
+    setIsAuthenticated(Boolean(token));
+
+    if (!storedUser) {
+      setIsAdmin(false);
+      return;
+    }
+
+    try {
+      const parsedUser = JSON.parse(storedUser);
+      setIsAdmin(parsedUser?.role === "admin");
+    } catch (error) {
+      localStorage.removeItem("user");
+      setIsAdmin(false);
+    }
+  };
 
   useEffect(() => {
-    const syncAuthState = () => {
-      setIsAuthenticated(Boolean(localStorage.getItem("token")));
-    };
+    syncAuthState();
 
     window.addEventListener("storage", syncAuthState);
     window.addEventListener("authChange", syncAuthState);
@@ -93,8 +122,10 @@ function App() {
     <BrowserRouter>
       <AppShell
         isAuthenticated={isAuthenticated}
+        isAdmin={isAdmin}
         onLogout={() => {
           localStorage.removeItem("token");
+          localStorage.removeItem("user");
           window.dispatchEvent(new Event("authChange"));
         }}
       />

@@ -232,6 +232,20 @@ const getUsers = async (req, res) => {
 const getPlatformOverview = async (req, res) => {
   try {
     const totalUsers = await User.countDocuments();
+    const connectionStats = await User.aggregate([
+      {
+        $project: {
+          connectionCount: { $size: { $ifNull: ["$connections", []] } },
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          totalConnectionRefs: { $sum: "$connectionCount" },
+        },
+      },
+    ]);
+    const totalConnections = Math.floor((connectionStats[0]?.totalConnectionRefs || 0) / 2);
 
     const developer = await User.findOne({ _id: { $ne: req.user._id } })
       .sort({ createdAt: 1 })
@@ -252,6 +266,7 @@ const getPlatformOverview = async (req, res) => {
     return res.status(200).json({
       stats: {
         totalUsers,
+        totalConnections,
       },
       developer: developer
         ? {

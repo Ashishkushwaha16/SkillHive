@@ -7,7 +7,7 @@ const navLinkClass = ({ isActive }) =>
       : "text-slate-700 hover:bg-slate-100 hover:text-slate-950"
   }`;
 
-const Navbar = ({ isAuthenticated, isAdmin, onLogout }) => {
+const Navbar = ({ isAuthenticated, isAdmin, onLogout, unreadMessagesCount = 0 }) => {
   return (
     <header className="sticky top-0 z-50 border-b border-white/60 bg-white/80 backdrop-blur-xl shadow-[0_12px_40px_-24px_rgba(15,23,42,0.3)]">
       <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-4 py-3">
@@ -39,9 +39,19 @@ const Navbar = ({ isAuthenticated, isAdmin, onLogout }) => {
               <NavLink to="/about" className={navLinkClass}>
                 About
               </NavLink>
-              {isAdmin ? (
-                <NavLink to="/messages" className={navLinkClass}>
+              <NavLink to="/messages" className={navLinkClass}>
+                <div className="relative flex items-center">
                   Messages
+                  {unreadMessagesCount > 0 ? (
+                    <span className="ml-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
+                      {unreadMessagesCount > 99 ? "99+" : unreadMessagesCount}
+                    </span>
+                  ) : null}
+                </div>
+              </NavLink>
+              {isAdmin ? (
+                <NavLink to="/admin/messages" className={navLinkClass}>
+                  Admin Inbox
                 </NavLink>
               ) : null}
               <button

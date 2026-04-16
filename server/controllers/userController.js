@@ -58,6 +58,41 @@ const parseSkillQuery = (rawValue) => {
   return unique;
 };
 
+const parsePositiveInt = (value, fallback) => {
+  const parsed = parseInt(value, 10);
+  if (Number.isNaN(parsed) || parsed <= 0) {
+    return fallback;
+  }
+
+  return parsed;
+};
+
+const normalizeSortOrder = (value) =>
+  value === "asc" || value === "1" ? 1 : -1;
+
+const computeMatchScore = (currentSkills, targetSkills) => {
+  const mine = new Set((currentSkills || []).map((item) => item.toLowerCase()));
+  const theirs = [...new Set((targetSkills || []).map((item) => item.toLowerCase()))];
+
+  if (!mine.size || !theirs.length) {
+    return {
+      score: 0,
+      matchedSkills: [],
+      missingSkills: theirs,
+    };
+  }
+
+  const matchedSkills = theirs.filter((skill) => mine.has(skill));
+  const missingSkills = theirs.filter((skill) => !mine.has(skill));
+  const score = Math.round((matchedSkills.length / theirs.length) * 100);
+
+  return {
+    score,
+    matchedSkills,
+    missingSkills,
+  };
+};
+
 const getProfile = async (req, res) => {
   try {
     const user = await User.findById(req.user._id)
@@ -196,7 +231,17 @@ const updateUserSkills = async (req, res) => {
 
 const getUsers = async (req, res) => {
   try {
-    const { skill, skills, mode } = req.query;
+    const {
+      skill,
+      skills,
+      mode,
+      minRating,
+      maxRating,
+      sortBy,
+      sortOrder,
+      page,
+      limit,
+    } = req.query;
     const filter = {
       _id: { $ne: req.user._id },
     };
@@ -222,8 +267,122 @@ const getUsers = async (req, res) => {
       }
     }
 
-    const users = await User.find(filter).select("-password");
+    if (typeof minRating !== "undefined" || typeof maxRating !== "undefined") {
+      filter.rating = {};
+
+      if (typeof minRating !== "undefined" && minRating !== "") {
+        const parsedMin = Number(minRating);
+        if (!Number.isNaN(parsedMin)) {
+          filter.rating.$gte = parsedMin;
+        }
+      }
+
+      if (typeof maxRating !== "undefined" && maxRating !== "") {
+        const parsedMax = Number(maxRating);
+        if (!Number.isNaN(parsedMax)) {
+          filter.rating.$lte = parsedMax;
+        }
+      }
+
+      if (!Object.keys(filter.rating).length) {
+        delete filter.rating;
+      }
+    }
+
+    const allowedSortFields = new Set(["rating", "name", "createdAt"]);
+    const resolvedSortField = allowedSortFields.has(sortBy) ? sortBy : "rating";
+    const resolvedSortOrder = normalizeSortOrder(sortOrder);
+
+    const pageNumber = parsePositiveInt(page, 1);
+    const pageSize = Math.min(parsePositiveInt(limit, 200), 200);
+    const skipCount = (pageNumber - 1) * pageSize;
+
+    const users = await User.find(filter)
+      .select("-password")
+      .sort({ [resolvedSortField]: resolvedSortOrder, createdAt: 1 })
+      .skip(skipCount)
+      .limit(pageSize);
+
     return res.status(200).json(users);
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+};
+
+const getSkillMatches = async (req, res) => {
+  try {
+    const currentUser = await User.findById(req.user._id).select("skills");
+    if (!currentUser) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const {
+      minScore,
+      limit,
+      minRating,
+      sortBy,
+      sortOrder,
+      skills,
+    } = req.query;
+
+    const requestedSkills = parseSkillQuery(skills);
+
+    const filter = {
+      _id: { $ne: req.user._id },
+    };
+
+    if (typeof minRating !== "undefined" && minRating !== "") {
+      const parsedMinRating = Number(minRating);
+      if (!Number.isNaN(parsedMinRating)) {
+        filter.rating = { $gte: parsedMinRating };
+      }
+    }
+
+    if (requestedSkills.length) {
+      filter.$or = requestedSkills.map((item) => ({
+        skills: {
+          $elemMatch: {
+            $regex: `^${escapeRegex(item)}$`,
+            $options: "i",
+          },
+        },
+      }));
+    }
+
+    const candidates = await User.find(filter)
+      .select("-password")
+      .limit(Math.min(parsePositiveInt(limit, 100), 200));
+
+    const minimumScore = Math.min(Math.max(parsePositiveInt(minScore, 0), 0), 100);
+
+    const scored = candidates
+      .map((candidate) => {
+        const { score, matchedSkills, missingSkills } = computeMatchScore(
+          currentUser.skills || [],
+          candidate.skills || []
+        );
+
+        return {
+          ...candidate.toObject(),
+          matchScore: score,
+          matchedSkills,
+          missingSkills,
+        };
+      })
+      .filter((item) => item.matchScore >= minimumScore);
+
+    const resolvedSortBy = sortBy === "name" ? "name" : sortBy === "rating" ? "rating" : "matchScore";
+    const resolvedSortOrder = normalizeSortOrder(sortOrder);
+
+    scored.sort((a, b) => {
+      if (resolvedSortBy === "name") {
+        return resolvedSortOrder * a.name.localeCompare(b.name);
+      }
+
+      return resolvedSortOrder * ((a[resolvedSortBy] || 0) - (b[resolvedSortBy] || 0));
+    });
+
+    return res.status(200).json(scored);
   } catch (error) {
     return res.status(500).json({ message: error.message });
   }
@@ -513,6 +672,7 @@ module.exports = {
   updateProfile,
   updateUserSkills,
   getUsers,
+  getSkillMatches,
   getPlatformOverview,
   sendConnectRequest,
   acceptConnectRequest,

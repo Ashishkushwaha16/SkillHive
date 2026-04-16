@@ -1,14 +1,28 @@
 import { useCallback, useEffect, useState } from "react";
 import PageLayout from "../components/PageLayout";
-import { getProfile, getUsers, sendConnectRequest } from "../services/userService";
+import {
+  getProfile,
+  getSkillMatches,
+  getUsers,
+  rateUser,
+  sendConnectRequest,
+} from "../services/userService";
 
 const Explore = () => {
   const [skill, setSkill] = useState("");
   const [matchMode, setMatchMode] = useState("any");
+  const [viewMode, setViewMode] = useState("all");
+  const [minRating, setMinRating] = useState("");
+  const [maxRating, setMaxRating] = useState("");
+  const [sortBy, setSortBy] = useState("rating");
+  const [sortOrder, setSortOrder] = useState("desc");
+  const [minScore, setMinScore] = useState("");
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [statusByUser, setStatusByUser] = useState({});
+  const [ratingDraftByUser, setRatingDraftByUser] = useState({});
+  const [ratingLoadingByUser, setRatingLoadingByUser] = useState({});
   const [message, setMessage] = useState({ type: "", text: "" });
 
   const buildStatusMap = (profileData) => {
@@ -29,12 +43,40 @@ const Explore = () => {
     return nextStatus;
   };
 
-  const fetchUsers = useCallback(async (searchSkill = "", mode = "any") => {
+  const fetchUsers = useCallback(async (filters = {}) => {
     try {
       setLoading(true);
       setError("");
+      const {
+        searchSkill = "",
+        skillMode = "any",
+        searchViewMode = "all",
+        searchMinRating = "",
+        searchMaxRating = "",
+        searchSortBy = "rating",
+        searchSortOrder = "desc",
+        searchMinScore = "",
+      } = filters;
+
       const [usersData, profileData] = await Promise.all([
-        getUsers(searchSkill, { multi: true, mode }),
+        searchViewMode === "matches"
+          ? getSkillMatches({
+              skills: searchSkill,
+              minScore: searchMinScore,
+              minRating: searchMinRating,
+              sortBy: searchSortBy === "createdAt" ? "matchScore" : searchSortBy,
+              sortOrder: searchSortOrder,
+              limit: 100,
+            })
+          : getUsers(searchSkill, {
+              multi: true,
+              mode: skillMode,
+              minRating: searchMinRating,
+              maxRating: searchMaxRating,
+              sortBy: searchSortBy,
+              sortOrder: searchSortOrder,
+              limit: 100,
+            }),
         getProfile(),
       ]);
       setUsers(usersData);
@@ -47,12 +89,21 @@ const Explore = () => {
   }, []);
 
   useEffect(() => {
-    fetchUsers();
+    fetchUsers({});
   }, [fetchUsers]);
 
   const handleSearch = (e) => {
     e.preventDefault();
-    fetchUsers(skill, matchMode);
+    fetchUsers({
+      searchSkill: skill,
+      skillMode: matchMode,
+      searchViewMode: viewMode,
+      searchMinRating: minRating,
+      searchMaxRating: maxRating,
+      searchSortBy: sortBy,
+      searchSortOrder: sortOrder,
+      searchMinScore: minScore,
+    });
   };
 
   const handleConnect = (userId) => {
@@ -73,6 +124,39 @@ const Explore = () => {
         });
         setMessage({ type: "error", text: err.message });
       });
+  };
+
+  const handleRateUser = async (userId) => {
+    const id = userId.toString();
+    const selectedRating = Number(ratingDraftByUser[id]);
+
+    if (!selectedRating || selectedRating < 1 || selectedRating > 5) {
+      setMessage({ type: "error", text: "Please select rating between 1 and 5" });
+      return;
+    }
+
+    setRatingLoadingByUser((prev) => ({ ...prev, [id]: true }));
+    setMessage({ type: "", text: "" });
+
+    try {
+      const result = await rateUser(id, selectedRating);
+      setUsers((prev) =>
+        prev.map((item) =>
+          item._id.toString() === id
+            ? { ...item, rating: typeof result.newRating === "number" ? result.newRating : item.rating }
+            : item
+        )
+      );
+
+      setMessage({
+        type: "success",
+        text: `Rating submitted. New rating: ${result.newRating?.toFixed?.(1) || result.newRating}`,
+      });
+    } catch (err) {
+      setMessage({ type: "error", text: err.message });
+    } finally {
+      setRatingLoadingByUser((prev) => ({ ...prev, [id]: false }));
+    }
   };
 
   return (
@@ -116,6 +200,18 @@ const Explore = () => {
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex flex-wrap items-center gap-3">
                 <p className="text-xs text-slate-500">Tip: comma-separated skills are supported.</p>
+                  <label className="text-xs font-semibold text-slate-600" htmlFor="viewMode">
+                    View:
+                  </label>
+                  <select
+                    id="viewMode"
+                    value={viewMode}
+                    onChange={(e) => setViewMode(e.target.value)}
+                    className="rounded-full border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700"
+                  >
+                    <option value="all">All users</option>
+                    <option value="matches">Smart matches</option>
+                  </select>
                 <label className="text-xs font-semibold text-slate-600" htmlFor="matchMode">
                   Match mode:
                 </label>
@@ -128,6 +224,28 @@ const Explore = () => {
                   <option value="any">Any skill</option>
                   <option value="all">All skills</option>
                 </select>
+                <label className="text-xs font-semibold text-slate-600" htmlFor="sortBy">
+                  Sort by:
+                </label>
+                <select
+                  id="sortBy"
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value)}
+                  className="rounded-full border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700"
+                >
+                  <option value="rating">Rating</option>
+                  <option value="name">Name</option>
+                  <option value="createdAt">Newest</option>
+                </select>
+                <select
+                  aria-label="sort order"
+                  value={sortOrder}
+                  onChange={(e) => setSortOrder(e.target.value)}
+                  className="rounded-full border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700"
+                >
+                  <option value="desc">High to low</option>
+                  <option value="asc">Low to high</option>
+                </select>
               </div>
 
               <div className="flex gap-3">
@@ -136,7 +254,13 @@ const Explore = () => {
                   onClick={() => {
                     setSkill("");
                     setMatchMode("any");
-                    fetchUsers();
+                    setViewMode("all");
+                    setMinRating("");
+                    setMaxRating("");
+                    setSortBy("rating");
+                    setSortOrder("desc");
+                    setMinScore("");
+                    fetchUsers({});
                   }}
                   className="ui-btn-secondary rounded-full px-5 py-2.5"
                 >
@@ -148,6 +272,45 @@ const Explore = () => {
                 >
                   Search
                 </button>
+              </div>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <input
+                type="number"
+                min="0"
+                max="5"
+                step="0.1"
+                value={minRating}
+                onChange={(e) => setMinRating(e.target.value)}
+                placeholder="Min rating (0-5)"
+                className="ui-input"
+              />
+              <input
+                type="number"
+                min="0"
+                max="5"
+                step="0.1"
+                value={maxRating}
+                onChange={(e) => setMaxRating(e.target.value)}
+                placeholder="Max rating (0-5)"
+                className="ui-input"
+                disabled={viewMode === "matches"}
+              />
+              <input
+                type="number"
+                min="0"
+                max="100"
+                value={minScore}
+                onChange={(e) => setMinScore(e.target.value)}
+                placeholder="Min match score (0-100)"
+                className="ui-input"
+                disabled={viewMode !== "matches"}
+              />
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-600">
+                {viewMode === "matches"
+                  ? "Smart mode prioritizes skill overlap score."
+                  : "All users mode uses backend filters and sorting."}
               </div>
             </div>
           </form>
@@ -187,6 +350,12 @@ const Explore = () => {
                     </div>
                   </div>
 
+                  {typeof user.matchScore === "number" ? (
+                    <div className="mt-4 inline-flex rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-emerald-700">
+                      Match {user.matchScore}%
+                    </div>
+                  ) : null}
+
                   {user.about && (
                     <p className="mt-4 text-sm leading-6 text-slate-600">{user.about}</p>
                   )}
@@ -224,6 +393,40 @@ const Explore = () => {
                         ? "Request pending"
                         : "Connect now"}
                   </button>
+
+                    {statusByUser[user._id] === "connected" ? (
+                      <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-3">
+                        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Rate this mentor</p>
+                        <div className="mt-2 flex flex-wrap items-center gap-2">
+                          <select
+                            value={ratingDraftByUser[user._id] || ""}
+                            onChange={(e) =>
+                              setRatingDraftByUser((prev) => ({
+                                ...prev,
+                                [user._id]: e.target.value,
+                              }))
+                            }
+                            className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700"
+                          >
+                            <option value="">Select</option>
+                            <option value="1">1</option>
+                            <option value="2">2</option>
+                            <option value="3">3</option>
+                            <option value="4">4</option>
+                            <option value="5">5</option>
+                          </select>
+
+                          <button
+                            type="button"
+                            onClick={() => handleRateUser(user._id)}
+                            disabled={ratingLoadingByUser[user._id]}
+                            className="ui-btn-secondary rounded-xl px-4 py-2 text-sm"
+                          >
+                            {ratingLoadingByUser[user._id] ? "Submitting..." : "Submit rating"}
+                          </button>
+                        </div>
+                      </div>
+                    ) : null}
                 </article>
               ))
             ) : (

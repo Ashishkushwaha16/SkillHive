@@ -1,5 +1,6 @@
 require("dotenv").config();
 
+const http = require("http");
 const express = require("express");
 const cors = require("cors");
 const helmet = require("helmet");
@@ -8,8 +9,10 @@ const connectDB = require("./config/db");
 const authRoutes = require("./routes/authRoutes");
 const userRoutes = require("./routes/userRoutes");
 const messageRoutes = require("./routes/messageRoutes");
+const chatRoutes = require("./routes/chatRoutes");
 const { apiLimiter } = require("./middleware/rateLimiter");
 const { notFound, errorHandler } = require("./middleware/errorMiddleware");
+const { initChatSocket } = require("./socket/chatSocket");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -31,6 +34,7 @@ app.use("/api", apiLimiter);
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/messages", messageRoutes);
+app.use("/api/chat", chatRoutes);
 
 app.get("/", (req, res) => {
   res.json({ message: "SkillHive API Running..." });
@@ -53,7 +57,11 @@ const startServer = async () => {
   }
 
   await connectDB();
-  app.listen(PORT, () => {
+  const server = http.createServer(app);
+  const io = initChatSocket(server, process.env.CLIENT_ORIGIN || "*");
+  app.set("io", io);
+
+  server.listen(PORT, () => {
     console.log(`Server running on port ${PORT} (${NODE_ENV})`);
   });
 };

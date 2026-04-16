@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { loginUser } from "../services/authService";
+import { GoogleLogin } from "@react-oauth/google";
+import { googleAuth, loginUser } from "../services/authService";
 
 const Login = () => {
   const navigate = useNavigate();
@@ -11,9 +12,36 @@ const Login = () => {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
+  const isGoogleEnabled = Boolean(process.env.REACT_APP_GOOGLE_CLIENT_ID);
 
   const handleChange = (e) => {
     setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+  };
+
+  const handleGoogleSuccess = async (credentialResponse) => {
+    if (!credentialResponse?.credential) {
+      setError("Google login failed. Please try again.");
+      return;
+    }
+
+    setError("");
+    setMessage("");
+    setGoogleLoading(true);
+
+    try {
+      const data = await googleAuth(credentialResponse.credential);
+      localStorage.setItem("token", data.token);
+      if (data.user) {
+        localStorage.setItem("user", JSON.stringify(data.user));
+      }
+      window.dispatchEvent(new Event("authChange"));
+      navigate("/dashboard");
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setGoogleLoading(false);
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -96,15 +124,31 @@ const Login = () => {
 
         <button
           type="submit"
-          disabled={loading}
+          disabled={loading || googleLoading}
           className="ui-btn-primary w-full rounded-full py-3.5"
         >
           {loading ? "Logging in..." : "Login"}
         </button>
       </form>
 
+      {isGoogleEnabled ? (
+        <div className="mt-4">
+          <p className="mb-2 text-center text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Or continue with</p>
+          <div className="flex justify-center">
+            <GoogleLogin
+              onSuccess={handleGoogleSuccess}
+              onError={() => setError("Google login failed. Please try again.")}
+            />
+          </div>
+        </div>
+      ) : null}
+
       {message && <p className="mt-4 text-sm text-emerald-600">{message}</p>}
       {error && <p className="mt-4 text-sm text-rose-600">{error}</p>}
+
+      <p className="mt-4 text-center text-sm text-slate-600">
+        <Link to="/forgot-password" className="font-semibold text-blue-700 hover:text-blue-800">Forgot password?</Link>
+      </p>
 
       <p className="mt-6 text-center text-sm text-slate-600">
         New here? <Link to="/register" className="font-semibold text-blue-700 hover:text-blue-800">Create account</Link>

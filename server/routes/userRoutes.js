@@ -5,6 +5,7 @@ const {
   updateProfile,
   updateUserSkills,
   getUsers,
+  getSkillMatches,
   getPlatformOverview,
   sendConnectRequest,
   acceptConnectRequest,
@@ -17,6 +18,7 @@ const {
 const router = express.Router();
 
 router.get("/leaderboard", getLeaderboard);
+router.get("/matches", protect, getSkillMatches);
 router.get("/profile", protect, getProfile);
 router.get("/platform", protect, getPlatformOverview);
 router.put("/profile", protect, updateProfile);

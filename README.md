@@ -1,12 +1,17 @@
 # SkillHive
 
-SkillHive is a peer-to-peer learning platform where users can share skills, discover mentors, and build learning connections.
+SkillHive is a peer-to-peer skill exchange platform where users can share skills, discover mentors, and build learning connections.
 
 ## 1. Project Overview
-SkillHive focuses on community learning:
+SkillHive focuses on two-way community learning:
 - Users add and manage their skills
 - Users explore other profiles by skill
 - Users send, accept, and reject connection requests
+
+Core direction:
+- Learn from others
+- Teach what you know
+- Build long-term collaborative learning relationships
 
 ## 2. Problem Statement
 Traditional learning platforms are mostly one-way:
@@ -14,14 +19,18 @@ Traditional learning platforms are mostly one-way:
 - Limited direct interaction
 - Less community-based collaboration
 
+Most platforms do not support structured skill exchange where two users can help each other grow.
+
 SkillHive addresses this by enabling profile-driven mentor connections.
 
 ## 3. Proposed Solution
-SkillHive provides:
+SkillHive provides a strong MVP foundation:
 - Secure registration and login
 - Skill management on profile
 - Mentor discovery with skill filters
 - Basic mentor connection workflow
+
+And is evolving toward a startup-style skill exchange ecosystem.
 
 ## 4. Tech Stack (MERN)
 ### Frontend
@@ -38,9 +47,10 @@ SkillHive provides:
 ### Authentication
 - JWT (JSON Web Token)
 - bcrypt password hashing
+- Google Sign-In / Sign-Up (OAuth)
 
 ## 5. Authentication Flow
-Register -> Login -> JWT token -> Protected routes/API access
+Register/Login/Google auth -> JWT token -> Protected routes/API access
 
 ## 6. Core Modules
 ### User Module
@@ -56,11 +66,18 @@ Register -> Login -> JWT token -> Protected routes/API access
 ### Explore Module
 - Browse users
 - Skill-based search (case-insensitive, partial match)
+- Rating filters and sorting options
+- Smart match mode with skill overlap score
 
 ### Connect Module (Basic)
 - Send request
 - Accept request
 - Reject request
+
+### Rating Module
+- Rate connected users from Explore page cards
+- 1 to 5 rating scale
+- Average rating updates after each review
 
 ### UI Module
 - Login / Register
@@ -105,24 +122,39 @@ Register
 - Protected UI and API routes
 - Mentor connection system (basic)
 - Clean routed frontend pages
+- Advanced explore filters and sorting
+- Skill matching score endpoint
 
 ## 11. Strengths
 - Full-stack MERN implementation
-- Real-world use case
-- Clear modular structure
-- Strong base for scaling features
+- Real-world use case with clear upgrade path
+- Clear modular backend structure
+- Security hardening and RBAC in place
+- Strong base for scaling into real product features
 
 ## 12. Current Limitations
-- No real-time chat yet
+- No session-wise mentor feedback analytics yet
+- No dedicated skill swap workflow yet (Teach X -> Learn Y)
+- No booking/session scheduling system yet
+- No notification layer yet
 - No AI recommendation engine yet
-- Connection workflow is basic (no notifications layer)
 
 ## 13. Future Enhancements
+Phase 1 (high impact):
 - Real-time chat (Socket.io)
-- Session booking system
-- AI mentor recommendations
-- Mobile app
+- Skill exchange matching workflow
+- Smarter explore and recommendation layer
+
+Phase 2:
+- Session booking and tracking
+- Notification system
+- Dashboard analytics and activity insights
+
+Phase 3:
+- Advanced security flows (email verification, password reset)
+- API docs (Swagger)
 - Cloud deployment and monitoring
+- Mobile app
 
 ## 14. Run Locally
 ### Backend
@@ -135,6 +167,13 @@ Required backend env (`server/.env`):
 - `JWT_SECRET=<strong_secret_key>`
 - `PORT=5000` (optional)
 - `CLIENT_ORIGIN=http://localhost:3000` (optional)
+- `GOOGLE_CLIENT_ID=<google_oauth_web_client_id>`
+- `SMTP_HOST=<smtp_host>`
+- `SMTP_PORT=<smtp_port>`
+- `SMTP_SECURE=<true_or_false>`
+- `SMTP_USER=<smtp_username>`
+- `SMTP_PASS=<smtp_password>`
+- `SMTP_FROM=<from_email>` (optional)
 - `SETUP_ADMIN_KEY=<one_time_setup_key_for_initial_admin>`
 
 ### Frontend
@@ -145,6 +184,7 @@ Required backend env (`server/.env`):
 Recommended frontend env (`client/.env`):
 - `REACT_APP_API_BASE_URL=http://localhost:5000`
 - `REACT_APP_SUPPORT_EMAIL=hello@skillhive.app`
+- `REACT_APP_GOOGLE_CLIENT_ID=<google_oauth_web_client_id>`
 
 ## 15. API Contract (Auth)
 ### Register
@@ -167,6 +207,49 @@ Recommended frontend env (`client/.env`):
 {
 	"email": "ashish@example.com",
 	"password": "123456"
+}
+```
+
+### Google Auth (Sign-in / Sign-up)
+- Method: `POST`
+- URL: `/api/auth/google`
+- Body:
+```json
+{
+	"credential": "google_id_token"
+}
+```
+
+### Forgot Password
+- Method: `POST`
+- URL: `/api/auth/forgot-password`
+- Body:
+```json
+{
+	"email": "ashish@example.com"
+}
+```
+
+### Reset Password
+- Method: `POST`
+- URL: `/api/auth/reset-password`
+- Body:
+```json
+{
+	"token": "reset_token_from_email",
+	"password": "new_password"
+}
+```
+
+### Rate a Connected User
+- Method: `POST`
+- URL: `/api/users/rate/:ratedUserId`
+- Header: `Authorization: Bearer <token>`
+- Body:
+```json
+{
+	"rating": 5,
+	"comment": "Great mentor"
 }
 ```
 
@@ -268,6 +351,12 @@ Workflow file: `.github/workflows/ci.yml`
 Runs automatically on push/PR:
 - Backend tests (`server`)
 - Frontend production build (`client`)
+
+## 24. Product Vision
+SkillHive aims to become a collaborative learning ecosystem where users can exchange skills, schedule practical sessions, and grow through structured peer learning.
+
+## Developed By
+Ashish Kushwaha
 
 ## Final Summary
 Idea -> Build -> Auth -> UI -> Skills -> Connect -> Complete

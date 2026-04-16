@@ -1,8 +1,10 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
-import { registerUser } from "../services/authService";
+import { Link, useNavigate } from "react-router-dom";
+import { GoogleLogin } from "@react-oauth/google";
+import { googleAuth, registerUser } from "../services/authService";
 
 const Register = () => {
+  const navigate = useNavigate();
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -11,9 +13,36 @@ const Register = () => {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
+  const isGoogleEnabled = Boolean(process.env.REACT_APP_GOOGLE_CLIENT_ID);
 
   const handleChange = (e) => {
     setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+  };
+
+  const handleGoogleSuccess = async (credentialResponse) => {
+    if (!credentialResponse?.credential) {
+      setError("Google signup failed. Please try again.");
+      return;
+    }
+
+    setMessage("");
+    setError("");
+    setGoogleLoading(true);
+
+    try {
+      const data = await googleAuth(credentialResponse.credential);
+      localStorage.setItem("token", data.token);
+      if (data.user) {
+        localStorage.setItem("user", JSON.stringify(data.user));
+      }
+      window.dispatchEvent(new Event("authChange"));
+      navigate("/dashboard");
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setGoogleLoading(false);
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -100,12 +129,24 @@ const Register = () => {
 
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || googleLoading}
             className="ui-btn-primary w-full rounded-full py-3.5"
           >
             {loading ? "Creating account..." : "Register"}
           </button>
         </form>
+
+        {isGoogleEnabled ? (
+          <div className="mt-4">
+            <p className="mb-2 text-center text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Or continue with</p>
+            <div className="flex justify-center">
+              <GoogleLogin
+                onSuccess={handleGoogleSuccess}
+                onError={() => setError("Google signup failed. Please try again.")}
+              />
+            </div>
+          </div>
+        ) : null}
 
         {message && <p className="mt-4 text-sm text-emerald-600">{message}</p>}
         {error && <p className="mt-4 text-sm text-rose-600">{error}</p>}

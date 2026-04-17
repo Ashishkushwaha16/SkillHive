@@ -74,6 +74,29 @@ Register/Login/Google auth -> JWT token -> Protected routes/API access
 - Accept request
 - Reject request
 
+### Notifications Module (Real-time)
+- New message notifications
+- Connection request notifications
+- Request accepted notifications
+- Sidebar notification panel with unread counts
+
+### Settings Module
+- Change password
+- Change email
+- Privacy setting: show/hide online status
+
+### Profile Assets Module
+- Avatar upload
+- Resume upload (PDF)
+- Certificates upload (multiple)
+- Achievements section
+
+### Home Feed Module
+- Admin-controlled posts feed (title, description, timestamp)
+
+### Feedback Module
+- Authenticated users can submit product feedback
+
 ### Rating Module
 - Rate connected users from Explore page cards
 - 1 to 5 rating scale
@@ -95,12 +118,17 @@ Current `User` model fields include:
 - email
 - password (hashed)
 - about
+- avatar
+- resume
+- certificates
+- achievements
 - skills
 - rating
 - role (`user` or `admin`)
 - connections
 - requestsSent
 - requestsReceived
+- privacy.showOnlineStatus
 
 ## 8. System Workflow
 Register
@@ -174,6 +202,9 @@ Required backend env (`server/.env`):
 - `SMTP_USER=<smtp_username>`
 - `SMTP_PASS=<smtp_password>`
 - `SMTP_FROM=<from_email>` (optional)
+- `CLOUDINARY_CLOUD_NAME=<cloudinary_cloud_name>`
+- `CLOUDINARY_API_KEY=<cloudinary_api_key>`
+- `CLOUDINARY_API_SECRET=<cloudinary_api_secret>`
 - `SETUP_ADMIN_KEY=<one_time_setup_key_for_initial_admin>`
 
 ### Frontend

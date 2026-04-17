@@ -2,6 +2,7 @@ const mongoose = require("mongoose");
 const ChatMessage = require("../models/ChatMessage");
 const User = require("../models/User");
 const { getDirectRoomId } = require("../utils/chatRoom");
+const { createUserNotification } = require("../utils/notificationService");
 
 const parsePositiveInt = (value, fallback) => {
   const parsed = parseInt(value, 10);
@@ -20,7 +21,7 @@ const getConversationSummaries = async (req, res) => {
     const currentUserId = req.user._id;
     const currentUser = await User.findById(currentUserId).populate(
       "connections",
-      "name email skills rating lastSeen"
+      "name email skills rating avatar lastSeen privacy"
     );
 
     if (!currentUser) {
@@ -34,8 +35,8 @@ const getConversationSummaries = async (req, res) => {
         const [lastMessage, unreadCount] = await Promise.all([
           ChatMessage.findOne({ roomId })
             .sort({ createdAt: -1 })
-            .populate("sender", "name email")
-            .populate("receiver", "name email"),
+            .populate("sender", "name email avatar")
+            .populate("receiver", "name email avatar"),
           ChatMessage.countDocuments({
             roomId,
             receiver: currentUserId,
@@ -49,9 +50,11 @@ const getConversationSummaries = async (req, res) => {
             _id: peer._id,
             name: peer.name,
             email: peer.email,
+            avatar: peer.avatar || { url: "", publicId: "" },
             skills: peer.skills,
             rating: peer.rating,
             lastSeen: peer.lastSeen,
+            showOnlineStatus: peer?.privacy?.showOnlineStatus !== false,
           },
           roomId,
           lastMessage: lastMessage || null,
@@ -103,8 +106,8 @@ const getDirectMessages = async (req, res) => {
     const skip = (page - 1) * limit;
 
     const messages = await ChatMessage.find({ roomId })
-      .populate("sender", "name email")
-      .populate("receiver", "name email")
+      .populate("sender", "name email avatar")
+      .populate("receiver", "name email avatar")
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit);
@@ -160,13 +163,25 @@ const postDirectMessage = async (req, res) => {
     });
 
     const populated = await ChatMessage.findById(createdMessage._id)
-      .populate("sender", "name email")
-      .populate("receiver", "name email");
+      .populate("sender", "name email avatar")
+      .populate("receiver", "name email avatar");
 
     const io = req.app.get("io");
     if (io && populated) {
       io.to(`user:${currentUserId.toString()}`).emit("chat:message", populated);
       io.to(`user:${otherUserId.toString()}`).emit("chat:message", populated);
+
+      await createUserNotification({
+        io,
+        userId: otherUserId,
+        type: "new_message",
+        title: "New message",
+        body: `${req.user.name} sent you a message`,
+        metadata: {
+          fromUserId: currentUserId,
+          roomId,
+        },
+      });
     }
 
     return res.status(201).json(populated);
@@ -222,13 +237,24 @@ const getLastSeen = async (req, res) => {
       return res.status(400).json({ message: "Invalid user id" });
     }
 
-    const user = await User.findById(userId).select("lastSeen");
+    const user = await User.findById(userId).select("lastSeen privacy");
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
 
+    if (
+      req.user._id.toString() !== userId.toString() &&
+      user?.privacy?.showOnlineStatus === false
+    ) {
+      return res.status(200).json({
+        lastSeen: null,
+        isHidden: true,
+      });
+    }
+
     return res.status(200).json({
       lastSeen: user.lastSeen,
+      isHidden: false,
     });
   } catch (error) {
     return res.status(500).json({ message: error.message });

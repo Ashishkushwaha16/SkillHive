@@ -34,9 +34,11 @@ describe("Validation middleware", () => {
       res.status(200).json({ ok: true });
     });
 
+    const loginPassword = `Test-${Date.now()}-Pass1!`;
+
     const response = await request(app).post("/login").send({
       email: "user@test.com",
-      password: "123456",
+      password: loginPassword,
     });
 
     expect(response.status).toBe(200);

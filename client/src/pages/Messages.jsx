@@ -3,6 +3,7 @@ import { io } from "socket.io-client";
 import PageLayout from "../components/PageLayout";
 import { SOCKET_ORIGIN } from "../config/api";
 import {
+  getCallHistory,
   getChatConversations,
   getDirectMessages,
   getLastSeen,
@@ -23,6 +24,15 @@ const Messages = () => {
   const [onlineUserIds, setOnlineUserIds] = useState([]);
   const [typingByUser, setTypingByUser] = useState({});
   const [lastSeenMap, setLastSeenMap] = useState({});
+  const [callStatus, setCallStatus] = useState({ type: "", text: "" });
+  const [incomingCall, setIncomingCall] = useState(null);
+  const [activeCall, setActiveCall] = useState(null);
+  const [callHistory, setCallHistory] = useState([]);
+  const [callModal, setCallModal] = useState({
+    isOpen: false,
+    mode: "video",
+    room: "",
+  });
   const socketRef = useRef(null);
   const typingTimeoutRef = useRef(null);
   const messagesEndRef = useRef(null);
@@ -33,6 +43,46 @@ const Messages = () => {
   );
 
   const isActivePeerOnline = onlineUserIds.includes(activePeerId);
+
+  const renderAvatar = (peer) => {
+    if (peer?.avatar?.url) {
+      return (
+        <img
+          src={peer.avatar.url}
+          alt={peer.name}
+          className="h-10 w-10 rounded-xl object-cover"
+        />
+      );
+    }
+
+    return (
+      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-900 text-sm font-bold text-white">
+        {(peer?.name || "U").slice(0, 1).toUpperCase()}
+      </div>
+    );
+  };
+
+  const closeCallModal = () => {
+    if (socketRef.current && activeCall?.roomId) {
+      socketRef.current.emit("call:end", {
+        roomId: activeCall.roomId,
+        reason: "ended_from_modal",
+      });
+    }
+
+    setActiveCall(null);
+    setCallModal({
+      isOpen: false,
+      mode: "video",
+      room: "",
+    });
+  };
+
+  const callUrl = callModal.room
+    ? `https://meet.jit.si/${callModal.room}#config.startWithVideoMuted=${
+        callModal.mode === "audio" ? "true" : "false"
+      }&config.startWithAudioMuted=false&config.prejoinPageEnabled=true`
+    : "";
 
   const getLastSeenText = (userId) => {
     const lastSeen = lastSeenMap[userId];
@@ -128,6 +178,63 @@ const Messages = () => {
       window.dispatchEvent(new Event("chatUnreadChange"));
     });
 
+    socket.on("call:incoming", (payload) => {
+      setIncomingCall(payload);
+      setCallStatus({
+        type: "incoming",
+        text: `${payload.fromName} is calling...`,
+      });
+    });
+
+    socket.on("call:ringing", () => {
+      setCallStatus({
+        type: "ringing",
+        text: "Ringing...",
+      });
+    });
+
+    socket.on("call:accepted", (payload) => {
+      setCallStatus({
+        type: "active",
+        text: "Call connected",
+      });
+
+      const roomId = payload.roomId;
+      const mode = payload.mode || "video";
+      setActiveCall({ roomId, mode });
+      setCallModal({
+        isOpen: true,
+        room: roomId,
+        mode,
+      });
+      setIncomingCall(null);
+    });
+
+    socket.on("call:busy", () => {
+      setCallStatus({
+        type: "busy",
+        text: "User is busy on another call",
+      });
+    });
+
+    socket.on("call:ended", ({ status }) => {
+      const label = status === "missed" ? "Call missed" : status === "rejected" ? "Call rejected" : "Call ended";
+      setCallStatus({
+        type: "ended",
+        text: label,
+      });
+      setIncomingCall(null);
+      setActiveCall(null);
+      setCallModal({
+        isOpen: false,
+        mode: "video",
+        room: "",
+      });
+      getCallHistory(20)
+        .then((logs) => setCallHistory(logs || []))
+        .catch(() => {});
+    });
+
     return () => {
       socket.disconnect();
       socketRef.current = null;
@@ -138,7 +245,10 @@ const Messages = () => {
     const loadPeers = async () => {
       try {
         setLoadingPeers(true);
-        const payload = await getChatConversations();
+        const [payload, logs] = await Promise.all([
+          getChatConversations(),
+          getCallHistory(20),
+        ]);
         const peers = (payload.conversations || []).map((item) => ({
           ...item.peer,
           unreadCount: item.unreadCount,
@@ -156,6 +266,7 @@ const Messages = () => {
 
         setConnections(peers);
         setRoomMeta(nextRoomMeta);
+        setCallHistory(logs || []);
 
         if (peers.length) {
           setActivePeerId(peers[0]._id.toString());
@@ -286,6 +397,87 @@ const Messages = () => {
     }
   };
 
+  const handleStartCall = async (mode = "video") => {
+    if (!socketRef.current || !activePeerId) {
+      return;
+    }
+
+    setCallStatus({
+      type: "ringing",
+      text: "Starting call...",
+    });
+
+    socketRef.current.emit(
+      "call:invite",
+      {
+        toUserId: activePeerId,
+        mode,
+      },
+      (ack) => {
+        if (!ack?.ok) {
+          setCallStatus({
+            type: "error",
+            text: ack?.message || "Failed to start call",
+          });
+          return;
+        }
+
+        setActiveCall({
+          roomId: ack.roomId,
+          mode,
+        });
+      }
+    );
+  };
+
+  const handleAcceptIncomingCall = () => {
+    if (!socketRef.current || !incomingCall?.roomId) {
+      return;
+    }
+
+    socketRef.current.emit("call:accept", { roomId: incomingCall.roomId }, (ack) => {
+      if (!ack?.ok) {
+        setCallStatus({
+          type: "error",
+          text: ack?.message || "Failed to accept call",
+        });
+      }
+    });
+  };
+
+  const handleRejectIncomingCall = () => {
+    if (!socketRef.current || !incomingCall?.roomId) {
+      return;
+    }
+
+    socketRef.current.emit("call:reject", { roomId: incomingCall.roomId }, () => {
+      setIncomingCall(null);
+      setCallStatus({
+        type: "ended",
+        text: "Call rejected",
+      });
+    });
+  };
+
+  const renderCallStatus = () => {
+    if (!callStatus.text) {
+      return null;
+    }
+
+    const palette =
+      callStatus.type === "error"
+        ? "border-rose-200 bg-rose-50 text-rose-700"
+        : callStatus.type === "active"
+          ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+          : "border-blue-200 bg-blue-50 text-blue-700";
+
+    return (
+      <p className={`mt-2 rounded-lg border px-3 py-2 text-xs font-semibold ${palette}`}>
+        {callStatus.text}
+      </p>
+    );
+  };
+
   return (
     <PageLayout
       title="Messages"
@@ -308,8 +500,10 @@ const Messages = () => {
               const peerId = peer._id.toString();
               const isActive = activePeerId === peerId;
               const isOnline = onlineUserIds.includes(peerId);
+              const allowPresence = peer?.showOnlineStatus !== false;
               const unreadCount = roomMeta[peerId]?.unreadCount ?? peer.unreadCount ?? 0;
               const lastMessage = roomMeta[peerId]?.lastMessage;
+              const lastMessageAt = roomMeta[peerId]?.lastMessageAt ?? peer.lastMessageAt;
 
               return (
                 <button
@@ -322,25 +516,46 @@ const Messages = () => {
                       : "border-slate-200 bg-white hover:bg-slate-50"
                   }`}
                 >
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="font-semibold text-slate-900">{peer.name}</p>
-                    <div className="flex items-center gap-2">
-                      {unreadCount > 0 ? (
-                        <span className="rounded-full bg-red-500 px-2 py-0.5 text-[10px] font-bold text-white">
-                          {unreadCount > 99 ? "99+" : unreadCount}
-                        </span>
+                  <div className="flex items-center gap-3">
+                    {renderAvatar(peer)}
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="truncate font-semibold text-slate-900">{peer.name}</p>
+                        <div className="flex items-center gap-2">
+                          {unreadCount > 0 ? (
+                            <span className="rounded-full bg-red-500 px-2 py-0.5 text-[10px] font-bold text-white">
+                              {unreadCount > 99 ? "99+" : unreadCount}
+                            </span>
+                          ) : null}
+                          <span
+                            className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.1em] ${
+                              allowPresence && isOnline
+                                ? "bg-emerald-100 text-emerald-700"
+                                : "bg-slate-100 text-slate-500"
+                            }`}
+                          >
+                            {allowPresence ? (isOnline ? "Online" : "Offline") : "Hidden"}
+                          </span>
+                        </div>
+                      </div>
+                      <p className="mt-0.5 text-xs text-slate-500">{peer.email}</p>
+                      {lastMessage?.text ? (
+                        <p className="mt-1 line-clamp-1 text-xs text-slate-500">{lastMessage.text}</p>
+                      ) : (
+                        <p className="mt-1 text-xs text-slate-400">No messages yet</p>
+                      )}
+                      {lastMessageAt ? (
+                        <p className="mt-1 text-[11px] text-slate-400">
+                          {new Date(lastMessageAt).toLocaleString([], {
+                            month: "short",
+                            day: "numeric",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </p>
                       ) : null}
-                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.1em] ${isOnline ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>
-                        {isOnline ? "Online" : "Offline"}
-                      </span>
                     </div>
                   </div>
-                  <p className="mt-1 text-xs text-slate-500">{peer.email}</p>
-                  {lastMessage?.text ? (
-                    <p className="mt-1 line-clamp-1 text-xs text-slate-400">
-                      {lastMessage.text}
-                    </p>
-                  ) : null}
                 </button>
               );
             })}
@@ -351,14 +566,38 @@ const Messages = () => {
           {activePeer ? (
             <>
               <div className="border-b border-slate-200 pb-3">
-                <h3 className="text-lg font-semibold text-slate-900">{activePeer.name}</h3>
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    {renderAvatar(activePeer)}
+                    <h3 className="text-lg font-semibold text-slate-900">{activePeer.name}</h3>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100"
+                      onClick={() => handleStartCall("audio")}
+                    >
+                      Audio Call
+                    </button>
+                    <button
+                      type="button"
+                      className="rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-800"
+                      onClick={() => handleStartCall("video")}
+                    >
+                      Video Call
+                    </button>
+                  </div>
+                </div>
                 <p className="text-xs text-slate-500">
-                  {isActivePeerOnline ? (
+                  {activePeer?.showOnlineStatus === false ? (
+                    <span>Status hidden</span>
+                  ) : isActivePeerOnline ? (
                     <span className="text-emerald-600">Online</span>
                   ) : (
                     <span>{getLastSeenText(activePeerId)}</span>
                   )}
                 </p>
+                {renderCallStatus()}
               </div>
 
               <div className="mt-4 h-[26rem] overflow-y-auto rounded-xl border border-slate-200 bg-slate-50 p-3">
@@ -371,20 +610,24 @@ const Messages = () => {
                       const myId = JSON.parse(localStorage.getItem("user") || "{}")._id;
                       const isMine = senderId === myId;
                       const isRead = !!item.readAt;
+                      const senderMeta = isMine ? JSON.parse(localStorage.getItem("user") || "{}") : activePeer;
 
                       return (
                         <div key={item._id} className={`flex ${isMine ? "justify-end" : "justify-start"}`}>
-                          <div className={`max-w-[80%] rounded-2xl px-3 py-2 text-sm ${isMine ? "bg-slate-900 text-white" : "bg-white text-slate-800"}`}>
-                            <p className="whitespace-pre-wrap">{item.text}</p>
-                            <div className="mt-1 flex items-center justify-between gap-2">
-                              <p className={`text-[10px] ${isMine ? "text-slate-300" : "text-slate-500"}`}>
-                                {new Date(item.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                              </p>
-                              {isMine ? (
-                                <span className={`text-[10px] font-semibold ${isRead ? "text-blue-400" : "text-slate-400"}`}>
-                                  {isRead ? "✓✓" : "✓"}
-                                </span>
-                              ) : null}
+                          <div className={`flex max-w-[85%] items-end gap-2 ${isMine ? "flex-row-reverse" : "flex-row"}`}>
+                            {renderAvatar(senderMeta)}
+                            <div className={`rounded-2xl px-3 py-2 text-sm ${isMine ? "bg-slate-900 text-white" : "bg-white text-slate-800"}`}>
+                              <p className="whitespace-pre-wrap">{item.text}</p>
+                              <div className="mt-1 flex items-center justify-between gap-2">
+                                <p className={`text-[10px] ${isMine ? "text-slate-300" : "text-slate-500"}`}>
+                                  {new Date(item.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                                </p>
+                                {isMine ? (
+                                  <span className={`text-[10px] font-semibold ${isRead ? "text-blue-400" : "text-slate-400"}`}>
+                                    {isRead ? "✓✓" : "✓"}
+                                  </span>
+                                ) : null}
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -426,9 +669,92 @@ const Messages = () => {
         </section>
       </div>
 
+      <section className="ui-card mt-6 p-5">
+        <h3 className="text-sm font-semibold uppercase tracking-[0.14em] text-slate-600">Recent Calls</h3>
+        {!callHistory.length ? (
+          <p className="mt-3 text-sm text-slate-500">No call history yet.</p>
+        ) : (
+          <div className="mt-3 space-y-2">
+            {callHistory.slice(0, 8).map((log) => {
+              const myId = JSON.parse(localStorage.getItem("user") || "{}")._id;
+              const isOutgoing = log?.caller?._id === myId;
+              const peer = isOutgoing ? log.callee : log.caller;
+              return (
+                <div key={log._id} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-sm font-semibold text-slate-800">
+                      {isOutgoing ? "Outgoing" : "Incoming"} {log.mode} call {peer?.name ? `with ${peer.name}` : ""}
+                    </p>
+                    <span className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">{log.status}</span>
+                  </div>
+                  <p className="mt-1 text-xs text-slate-500">
+                    {new Date(log.createdAt).toLocaleString()} {log.durationSec ? `- ${log.durationSec}s` : ""}
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </section>
+
       {error ? (
         <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           {error}
+        </div>
+      ) : null}
+
+      {callModal.isOpen ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4">
+          <div className="flex h-[88vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">In-app call</p>
+                <h3 className="text-base font-bold text-slate-900">
+                  {callModal.mode === "audio" ? "Audio" : "Video"} Call with {activePeer?.name || "User"}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={closeCallModal}
+                className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-semibold text-slate-700 hover:bg-slate-100"
+              >
+                End Call
+              </button>
+            </div>
+
+            <div className="h-full w-full bg-black">
+              <iframe
+                title="SkillHive Call"
+                src={callUrl}
+                className="h-full w-full border-0"
+                allow="camera; microphone; fullscreen; display-capture"
+              />
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {incomingCall ? (
+        <div className="fixed inset-x-4 top-4 z-50 mx-auto w-full max-w-md rounded-2xl border border-emerald-200 bg-white p-4 shadow-2xl">
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-emerald-700">Incoming {incomingCall.mode} call</p>
+          <h4 className="mt-1 text-lg font-bold text-slate-900">{incomingCall.fromName}</h4>
+          <p className="mt-1 text-sm text-slate-600">Accept to open call inside SkillHive.</p>
+          <div className="mt-3 flex items-center gap-2">
+            <button
+              type="button"
+              className="rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
+              onClick={handleAcceptIncomingCall}
+            >
+              Accept
+            </button>
+            <button
+              type="button"
+              className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100"
+              onClick={handleRejectIncomingCall}
+            >
+              Reject
+            </button>
+          </div>
         </div>
       ) : null}
     </PageLayout>

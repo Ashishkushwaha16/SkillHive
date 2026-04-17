@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import PageLayout from "../components/PageLayout";
 import {
   acceptConnectRequest,
@@ -8,7 +7,6 @@ import {
 } from "../services/userService";
 
 const Dashboard = () => {
-  const navigate = useNavigate();
   const [requests, setRequests] = useState([]);
   const [loadingRequests, setLoadingRequests] = useState(true);
   const [message, setMessage] = useState({ type: "", text: "" });
@@ -28,12 +26,6 @@ const Dashboard = () => {
   useEffect(() => {
     loadRequests();
   }, []);
-
-  const handleLogout = () => {
-    localStorage.removeItem("token");
-    window.dispatchEvent(new Event("authChange"));
-    navigate("/login");
-  };
 
   const handleAccept = async (userId) => {
     try {
@@ -69,9 +61,6 @@ const Dashboard = () => {
               </p>
             </div>
 
-            <button type="button" onClick={handleLogout} className="ui-btn-secondary self-start">
-              Logout
-            </button>
           </div>
 
           <div className="mt-8 grid gap-4 sm:grid-cols-3">

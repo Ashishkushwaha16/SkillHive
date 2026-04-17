@@ -313,6 +313,21 @@ export const getChatConversations = async () => {
   return result;
 };
 
+export const getCallHistory = async (limit = 40) => {
+  const response = await fetch(`${API_ENDPOINTS.calls}/history?limit=${limit}`, {
+    method: "GET",
+    headers: getAuthHeaders(),
+  });
+
+  const result = await response.json();
+
+  if (!response.ok) {
+    throw new Error(result.message || "Failed to load call history");
+  }
+
+  return result;
+};
+
 export const markDirectMessagesRead = async (userId) => {
   const response = await fetch(`${API_ENDPOINTS.chat}/direct/${userId}/read`, {
     method: "PUT",
@@ -388,6 +403,182 @@ export const getUserReviews = async (userId) => {
 
   if (!response.ok) {
     throw new Error(result.message || "Failed to load reviews");
+  }
+
+  return result;
+};
+
+export const uploadProfileAssets = async (formData) => {
+  const token = localStorage.getItem("token");
+  const response = await fetch(`${API_BASE_URL}/profile/assets`, {
+    method: "PUT",
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: formData,
+  });
+
+  const result = await response.json();
+
+  if (!response.ok) {
+    throw new Error(result.message || "Failed to upload profile files");
+  }
+
+  return result;
+};
+
+export const deleteProfileAvatar = async () => {
+  const response = await fetch(`${API_BASE_URL}/profile/avatar`, {
+    method: "DELETE",
+    headers: getAuthHeaders(),
+  });
+
+  const result = await response.json();
+
+  if (!response.ok) {
+    throw new Error(result.message || "Failed to remove avatar");
+  }
+
+  return result;
+};
+
+export const changePassword = async ({ currentPassword, newPassword }) => {
+  const response = await fetch(`${API_BASE_URL}/settings/password`, {
+    method: "PUT",
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ currentPassword, newPassword }),
+  });
+
+  const result = await response.json();
+
+  if (!response.ok) {
+    throw new Error(result.message || "Failed to change password");
+  }
+
+  return result;
+};
+
+export const changeEmail = async ({ newEmail, password }) => {
+  const response = await fetch(`${API_BASE_URL}/settings/email`, {
+    method: "PUT",
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ newEmail, password }),
+  });
+
+  const result = await response.json();
+
+  if (!response.ok) {
+    throw new Error(result.message || "Failed to change email");
+  }
+
+  return result;
+};
+
+export const updatePrivacySettings = async ({ showOnlineStatus }) => {
+  const response = await fetch(`${API_BASE_URL}/settings/privacy`, {
+    method: "PUT",
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ showOnlineStatus }),
+  });
+
+  const result = await response.json();
+
+  if (!response.ok) {
+    throw new Error(result.message || "Failed to update privacy settings");
+  }
+
+  return result;
+};
+
+export const getNotifications = async (limit = 20) => {
+  const response = await fetch(`${API_ENDPOINTS.notifications}?limit=${limit}`, {
+    method: "GET",
+    headers: getAuthHeaders(),
+  });
+
+  const result = await response.json();
+
+  if (!response.ok) {
+    throw new Error(result.message || "Failed to load notifications");
+  }
+
+  return result;
+};
+
+export const markNotificationRead = async (notificationId) => {
+  const response = await fetch(`${API_ENDPOINTS.notifications}/${notificationId}/read`, {
+    method: "PUT",
+    headers: getAuthHeaders(),
+  });
+
+  const result = await response.json();
+
+  if (!response.ok) {
+    throw new Error(result.message || "Failed to mark notification read");
+  }
+
+  return result;
+};
+
+export const markAllNotificationsRead = async () => {
+  const response = await fetch(`${API_ENDPOINTS.notifications}/read-all`, {
+    method: "PUT",
+    headers: getAuthHeaders(),
+  });
+
+  const result = await response.json();
+
+  if (!response.ok) {
+    throw new Error(result.message || "Failed to mark all notifications read");
+  }
+
+  return result;
+};
+
+export const getHomePosts = async () => {
+  const response = await fetch(API_ENDPOINTS.posts, {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+    },
+  });
+
+  const result = await response.json();
+
+  if (!response.ok) {
+    throw new Error(result.message || "Failed to load posts");
+  }
+
+  return result;
+};
+
+export const createHomePost = async ({ title, description }) => {
+  const response = await fetch(API_ENDPOINTS.posts, {
+    method: "POST",
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ title, description }),
+  });
+
+  const result = await response.json();
+
+  if (!response.ok) {
+    throw new Error(result.message || "Failed to create post");
+  }
+
+  return result;
+};
+
+export const submitFeedback = async ({ category, message }) => {
+  const response = await fetch(API_ENDPOINTS.feedback, {
+    method: "POST",
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ category, message }),
+  });
+
+  const result = await response.json();
+
+  if (!response.ok) {
+    throw new Error(result.message || "Failed to submit feedback");
   }
 
   return result;

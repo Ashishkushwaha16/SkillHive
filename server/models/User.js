@@ -44,6 +44,57 @@ const userSchema = new mongoose.Schema(
       maxlength: 200,
       default: "",
     },
+    avatar: {
+      url: {
+        type: String,
+        default: "",
+      },
+      publicId: {
+        type: String,
+        default: "",
+      },
+    },
+    resume: {
+      url: {
+        type: String,
+        default: "",
+      },
+      publicId: {
+        type: String,
+        default: "",
+      },
+      name: {
+        type: String,
+        default: "",
+      },
+    },
+    certificates: {
+      type: [
+        {
+          url: {
+            type: String,
+            required: true,
+          },
+          publicId: {
+            type: String,
+            required: true,
+          },
+          name: {
+            type: String,
+            default: "",
+          },
+          uploadedAt: {
+            type: Date,
+            default: Date.now,
+          },
+        },
+      ],
+      default: [],
+    },
+    achievements: {
+      type: [String],
+      default: [],
+    },
     skills: {
       type: [String],
       default: [],
@@ -78,6 +129,12 @@ const userSchema = new mongoose.Schema(
     lastSeen: {
       type: Date,
       default: Date.now,
+    },
+    privacy: {
+      showOnlineStatus: {
+        type: Boolean,
+        default: true,
+      },
     },
   },
   {

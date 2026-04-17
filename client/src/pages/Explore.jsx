@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import PageLayout from "../components/PageLayout";
+import SkillSearch from "../components/SkillSearch";
 import {
   getProfile,
   getSkillMatches,
@@ -9,6 +11,7 @@ import {
 } from "../services/userService";
 
 const Explore = () => {
+  const [searchParams] = useSearchParams();
   const [skill, setSkill] = useState("");
   const [matchMode, setMatchMode] = useState("any");
   const [viewMode, setViewMode] = useState("all");
@@ -89,8 +92,10 @@ const Explore = () => {
   }, []);
 
   useEffect(() => {
-    fetchUsers({});
-  }, [fetchUsers]);
+    const skillFromUrl = searchParams.get("skills") || "";
+    setSkill(skillFromUrl);
+    fetchUsers({ searchSkill: skillFromUrl });
+  }, [searchParams, fetchUsers]);
 
   const handleSearch = (e) => {
     e.preventDefault();
@@ -162,159 +167,39 @@ const Explore = () => {
   return (
     <PageLayout title="Explore Mentors" subtitle="Find people by skill and start connecting.">
       <div className="space-y-6">
-        <section className="ui-card-soft p-6 md:p-8">
-          <div className="grid gap-6 lg:grid-cols-[1fr,0.7fr] lg:items-end">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-700">Skill search</p>
-              <h2 className="mt-2 text-2xl font-extrabold text-slate-950">Search by one skill or combine several.</h2>
-              <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600">
-                Use comma-separated skills to narrow results. Match mode controls whether all selected skills are required or just one.
-              </p>
-            </div>
-
-            <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3">
-              <div className="rounded-2xl border border-white/80 bg-white p-4 shadow-sm">
-                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Connected</p>
-                <p className="mt-2 text-2xl font-black text-slate-950">{Object.values(statusByUser).filter((value) => value === "connected").length}</p>
-              </div>
-              <div className="rounded-2xl border border-white/80 bg-white p-4 shadow-sm">
-                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Pending</p>
-                <p className="mt-2 text-2xl font-black text-slate-950">{Object.values(statusByUser).filter((value) => value === "pending").length}</p>
-              </div>
-              <div className="rounded-2xl border border-white/80 bg-white p-4 shadow-sm">
-                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Results</p>
-                <p className="mt-2 text-2xl font-black text-slate-950">{users.length}</p>
-              </div>
-            </div>
-          </div>
-
-          <form onSubmit={handleSearch} className="mt-6 space-y-4 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-            <input
-              type="text"
-              value={skill}
-              onChange={(e) => setSkill(e.target.value)}
-              placeholder="Search skills, e.g. react, node, mongodb"
-              className="ui-input"
-            />
-
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="flex flex-wrap items-center gap-3">
-                <p className="text-xs text-slate-500">Tip: comma-separated skills are supported.</p>
-                  <label className="text-xs font-semibold text-slate-600" htmlFor="viewMode">
-                    View:
-                  </label>
-                  <select
-                    id="viewMode"
-                    value={viewMode}
-                    onChange={(e) => setViewMode(e.target.value)}
-                    className="rounded-full border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700"
-                  >
-                    <option value="all">All users</option>
-                    <option value="matches">Smart matches</option>
-                  </select>
-                <label className="text-xs font-semibold text-slate-600" htmlFor="matchMode">
-                  Match mode:
-                </label>
-                <select
-                  id="matchMode"
-                  value={matchMode}
-                  onChange={(e) => setMatchMode(e.target.value)}
-                  className="rounded-full border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700"
-                >
-                  <option value="any">Any skill</option>
-                  <option value="all">All skills</option>
-                </select>
-                <label className="text-xs font-semibold text-slate-600" htmlFor="sortBy">
-                  Sort by:
-                </label>
-                <select
-                  id="sortBy"
-                  value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value)}
-                  className="rounded-full border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700"
-                >
-                  <option value="rating">Rating</option>
-                  <option value="name">Name</option>
-                  <option value="createdAt">Newest</option>
-                </select>
-                <select
-                  aria-label="sort order"
-                  value={sortOrder}
-                  onChange={(e) => setSortOrder(e.target.value)}
-                  className="rounded-full border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700"
-                >
-                  <option value="desc">High to low</option>
-                  <option value="asc">Low to high</option>
-                </select>
-              </div>
-
-              <div className="flex gap-3">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSkill("");
-                    setMatchMode("any");
-                    setViewMode("all");
-                    setMinRating("");
-                    setMaxRating("");
-                    setSortBy("rating");
-                    setSortOrder("desc");
-                    setMinScore("");
-                    fetchUsers({});
-                  }}
-                  className="ui-btn-secondary rounded-full px-5 py-2.5"
-                >
-                  Clear
-                </button>
-                <button
-                  type="submit"
-                  className="ui-btn-primary rounded-full px-5 py-2.5"
-                >
-                  Search
-                </button>
-              </div>
-            </div>
-
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              <input
-                type="number"
-                min="0"
-                max="5"
-                step="0.1"
-                value={minRating}
-                onChange={(e) => setMinRating(e.target.value)}
-                placeholder="Min rating (0-5)"
-                className="ui-input"
-              />
-              <input
-                type="number"
-                min="0"
-                max="5"
-                step="0.1"
-                value={maxRating}
-                onChange={(e) => setMaxRating(e.target.value)}
-                placeholder="Max rating (0-5)"
-                className="ui-input"
-                disabled={viewMode === "matches"}
-              />
-              <input
-                type="number"
-                min="0"
-                max="100"
-                value={minScore}
-                onChange={(e) => setMinScore(e.target.value)}
-                placeholder="Min match score (0-100)"
-                className="ui-input"
-                disabled={viewMode !== "matches"}
-              />
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-600">
-                {viewMode === "matches"
-                  ? "Smart mode prioritizes skill overlap score."
-                  : "All users mode uses backend filters and sorting."}
-              </div>
-            </div>
-          </form>
-        </section>
+        <SkillSearch
+          skill={skill}
+          matchMode={matchMode}
+          viewMode={viewMode}
+          minRating={minRating}
+          maxRating={maxRating}
+          sortBy={sortBy}
+          sortOrder={sortOrder}
+          minScore={minScore}
+          onSkillChange={setSkill}
+          onMatchModeChange={setMatchMode}
+          onViewModeChange={setViewMode}
+          onMinRatingChange={setMinRating}
+          onMaxRatingChange={setMaxRating}
+          onSortByChange={setSortBy}
+          onSortOrderChange={setSortOrder}
+          onMinScoreChange={setMinScore}
+          onSearch={handleSearch}
+          onClear={() => {
+            setSkill("");
+            setMatchMode("any");
+            setViewMode("all");
+            setMinRating("");
+            setMaxRating("");
+            setSortBy("rating");
+            setSortOrder("desc");
+            setMinScore("");
+            fetchUsers({});
+          }}
+          connectedCount={Object.values(statusByUser).filter((value) => value === "connected").length}
+          pendingCount={Object.values(statusByUser).filter((value) => value === "pending").length}
+          resultsCount={users.length}
+        />
 
         {skill.trim() && (
           <p className="text-sm text-slate-500">
@@ -332,46 +217,51 @@ const Explore = () => {
         {error && <p className="text-rose-600">{error}</p>}
 
         {!loading && !error && (
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid gap-4 sm:gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
             {users.length > 0 ? (
               users.map((user) => (
-                <article key={user._id} className="ui-card-soft p-6 transition-all duration-200 hover:-translate-y-1 hover:shadow-[0_28px_80px_-30px_rgba(37,99,235,0.38)]">
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <div className="inline-flex rounded-full border border-blue-100 bg-white px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-blue-700">
-                        Mentor profile
+                <article key={user._id} className="ui-card-soft p-4 sm:p-6 transition-all duration-200 hover:-translate-y-1 hover:shadow-[0_28px_80px_-30px_rgba(37,99,235,0.38)]">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="inline-flex rounded-full border border-blue-100 bg-white px-3 py-1 text-[10px] sm:text-[11px] font-semibold uppercase tracking-[0.18em] text-blue-700">
+                        Mentor
                       </div>
-                      <h3 className="mt-3 text-xl font-extrabold text-slate-950">{user.name}</h3>
-                      <p className="text-sm text-slate-600">{user.email}</p>
+                      <h3 className="mt-2 text-lg sm:text-xl font-extrabold text-slate-950 truncate">{user.name}</h3>
+                      <p className="text-xs sm:text-sm text-slate-600 truncate">{user.email}</p>
                     </div>
-                    <div className="rounded-2xl bg-slate-950 px-3 py-2 text-right text-white">
-                      <p className="text-2xl font-black leading-none">{(user.rating ?? 0).toFixed(1)}</p>
-                      <p className="text-[11px] uppercase tracking-[0.14em] text-slate-300">Rating</p>
+                    <div className="rounded-lg sm:rounded-2xl bg-slate-950 px-2 sm:px-3 py-2 text-right text-white flex-shrink-0">
+                      <p className="text-lg sm:text-2xl font-black leading-none">{(user.rating ?? 0).toFixed(1)}</p>
+                      <p className="text-[9px] sm:text-[11px] uppercase tracking-[0.14em] text-slate-300">Rating</p>
                     </div>
                   </div>
 
                   {typeof user.matchScore === "number" ? (
-                    <div className="mt-4 inline-flex rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-emerald-700">
+                    <div className="mt-3 inline-flex rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-emerald-700">
                       Match {user.matchScore}%
                     </div>
                   ) : null}
 
                   {user.about && (
-                    <p className="mt-4 text-sm leading-6 text-slate-600">{user.about}</p>
+                    <p className="mt-3 text-xs sm:text-sm leading-5 sm:leading-6 text-slate-600 line-clamp-2">{user.about}</p>
                   )}
 
-                  <div className="mt-5 flex flex-wrap gap-2">
+                  <div className="mt-4 flex flex-wrap gap-1.5">
                     {user.skills?.length ? (
-                      user.skills.map((item) => (
+                      user.skills.slice(0, 3).map((item) => (
                         <span
                           key={item}
-                          className="rounded-full border border-white/70 bg-white px-3 py-1 text-xs font-semibold text-blue-700 shadow-sm"
+                          className="rounded-full border border-white/70 bg-white px-2.5 py-1 text-xs font-semibold text-blue-700 shadow-sm"
                         >
                           {item}
                         </span>
                       ))
                     ) : (
-                      <span className="text-sm text-slate-500">No skills added</span>
+                      <span className="text-xs text-slate-500">No skills</span>
+                    )}
+                    {user.skills?.length > 3 && (
+                      <span className="rounded-full border border-white/70 bg-white px-2.5 py-1 text-xs font-semibold text-slate-500">
+                        +{user.skills.length - 3}
+                      </span>
                     )}
                   </div>
 
@@ -379,7 +269,7 @@ const Explore = () => {
                     type="button"
                     onClick={() => handleConnect(user._id)}
                     disabled={statusByUser[user._id] === "pending" || statusByUser[user._id] === "connected"}
-                    className={`mt-5 w-full rounded-2xl px-4 py-3 text-sm font-semibold text-white transition-all duration-200 ${
+                    className={`mt-4 w-full rounded-lg sm:rounded-2xl px-3 sm:px-4 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold text-white transition-all duration-200 ${
                       statusByUser[user._id] === "connected"
                         ? "bg-emerald-600 hover:bg-emerald-700"
                         : statusByUser[user._id] === "pending"
@@ -390,14 +280,14 @@ const Explore = () => {
                     {statusByUser[user._id] === "connected"
                       ? "Connected"
                       : statusByUser[user._id] === "pending"
-                        ? "Request pending"
-                        : "Connect now"}
+                        ? "Pending"
+                        : "Connect"}
                   </button>
 
                     {statusByUser[user._id] === "connected" ? (
-                      <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-3">
-                        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Rate this mentor</p>
-                        <div className="mt-2 flex flex-wrap items-center gap-2">
+                      <div className="mt-3 rounded-lg sm:rounded-2xl border border-slate-200 bg-white p-2.5 sm:p-3">
+                        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Rate</p>
+                        <div className="mt-2 flex flex-col sm:flex-row flex-wrap items-center gap-2">
                           <select
                             value={ratingDraftByUser[user._id] || ""}
                             onChange={(e) =>
@@ -406,7 +296,7 @@ const Explore = () => {
                                 [user._id]: e.target.value,
                               }))
                             }
-                            className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700"
+                            className="w-full sm:flex-1 rounded-lg border border-slate-300 bg-white px-2.5 py-2 text-xs sm:text-sm font-semibold text-slate-700"
                           >
                             <option value="">Select</option>
                             <option value="1">1</option>
@@ -420,9 +310,9 @@ const Explore = () => {
                             type="button"
                             onClick={() => handleRateUser(user._id)}
                             disabled={ratingLoadingByUser[user._id]}
-                            className="ui-btn-secondary rounded-xl px-4 py-2 text-sm"
+                            className="w-full sm:w-auto ui-btn-secondary rounded-lg px-3 sm:px-4 py-2 text-xs sm:text-sm"
                           >
-                            {ratingLoadingByUser[user._id] ? "Submitting..." : "Submit rating"}
+                            {ratingLoadingByUser[user._id] ? "..." : "Submit"}
                           </button>
                         </div>
                       </div>
@@ -430,7 +320,7 @@ const Explore = () => {
                 </article>
               ))
             ) : (
-              <div className="ui-card p-8 text-slate-600">
+              <div className="ui-card col-span-full p-6 sm:p-8 text-center text-slate-600">
                 No users found.
               </div>
             )}

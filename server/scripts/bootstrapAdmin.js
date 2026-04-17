@@ -14,7 +14,7 @@ const getArgValue = (flag) => {
 
 const usage = () => {
   console.log("Usage:");
-  console.log("  npm run admin:bootstrap -- --email admin@example.com --name \"Admin\" --password \"123456\"");
+  console.log("  npm run admin:bootstrap -- --email your_email@example.com --name \"Admin\" --password \"StrongPassword123!\"");
   console.log("\nFlags:");
   console.log("  --email      Required. Admin email");
   console.log("  --name       Optional for existing user, required for new user");

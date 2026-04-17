@@ -10,6 +10,10 @@ const authRoutes = require("./routes/authRoutes");
 const userRoutes = require("./routes/userRoutes");
 const messageRoutes = require("./routes/messageRoutes");
 const chatRoutes = require("./routes/chatRoutes");
+const notificationRoutes = require("./routes/notificationRoutes");
+const postRoutes = require("./routes/postRoutes");
+const feedbackRoutes = require("./routes/feedbackRoutes");
+const callRoutes = require("./routes/callRoutes");
 const { apiLimiter } = require("./middleware/rateLimiter");
 const { notFound, errorHandler } = require("./middleware/errorMiddleware");
 const { initChatSocket } = require("./socket/chatSocket");
@@ -35,6 +39,10 @@ app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/messages", messageRoutes);
 app.use("/api/chat", chatRoutes);
+app.use("/api/notifications", notificationRoutes);
+app.use("/api/posts", postRoutes);
+app.use("/api/feedback", feedbackRoutes);
+app.use("/api/calls", callRoutes);
 
 app.get("/", (req, res) => {
   res.json({ message: "SkillHive API Running..." });

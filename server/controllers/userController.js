@@ -1,8 +1,13 @@
+const bcrypt = require("bcryptjs");
 const User = require("../models/User");
 const Review = require("../models/Review");
+const { hasCloudinaryConfig, uploadBuffer, deleteAsset } = require("../config/cloudinary");
+const { createUserNotification } = require("../utils/notificationService");
 
 const MAX_SKILL_LENGTH = 20;
 const MAX_ABOUT_LENGTH = 200;
+const MAX_ACHIEVEMENTS = 20;
+const MAX_ACHIEVEMENT_LENGTH = 120;
 
 const normalizeSkill = (value) => value.trim().toLowerCase();
 
@@ -58,13 +63,100 @@ const parseSkillQuery = (rawValue) => {
   return unique;
 };
 
+const parsePositiveInt = (value, fallback) => {
+  const parsed = parseInt(value, 10);
+  if (Number.isNaN(parsed) || parsed <= 0) {
+    return fallback;
+  }
+
+  return parsed;
+};
+
+const normalizeSortOrder = (value) =>
+  value === "asc" || value === "1" ? 1 : -1;
+
+const computeMatchScore = (currentSkills, targetSkills) => {
+  const mine = new Set((currentSkills || []).map((item) => item.toLowerCase()));
+  const theirs = [...new Set((targetSkills || []).map((item) => item.toLowerCase()))];
+
+  if (!mine.size || !theirs.length) {
+    return {
+      score: 0,
+      matchedSkills: [],
+      missingSkills: theirs,
+    };
+  }
+
+  const matchedSkills = theirs.filter((skill) => mine.has(skill));
+  const missingSkills = theirs.filter((skill) => !mine.has(skill));
+  const score = Math.round((matchedSkills.length / theirs.length) * 100);
+
+  return {
+    score,
+    matchedSkills,
+    missingSkills,
+  };
+};
+
+const parseAchievements = (input) => {
+  if (typeof input === "undefined") {
+    return null;
+  }
+
+  let parsed = input;
+
+  if (typeof input === "string") {
+    try {
+      parsed = JSON.parse(input);
+    } catch (error) {
+      parsed = input
+        .split("\n")
+        .map((item) => item.trim())
+        .filter(Boolean);
+    }
+  }
+
+  if (!Array.isArray(parsed)) {
+    return null;
+  }
+
+  const unique = [];
+  const seen = new Set();
+
+  for (const item of parsed) {
+    if (typeof item !== "string") {
+      continue;
+    }
+
+    const clean = item.trim();
+    if (!clean) {
+      continue;
+    }
+
+    const short = clean.slice(0, MAX_ACHIEVEMENT_LENGTH);
+    const key = short.toLowerCase();
+    if (seen.has(key)) {
+      continue;
+    }
+
+    seen.add(key);
+    unique.push(short);
+
+    if (unique.length >= MAX_ACHIEVEMENTS) {
+      break;
+    }
+  }
+
+  return unique;
+};
+
 const getProfile = async (req, res) => {
   try {
     const user = await User.findById(req.user._id)
       .select("-password")
-      .populate("connections", "name email skills rating")
-      .populate("requestsSent", "name email skills rating")
-      .populate("requestsReceived", "name email skills rating");
+      .populate("connections", "name email skills rating avatar privacy")
+      .populate("requestsSent", "name email skills rating avatar")
+      .populate("requestsReceived", "name email skills rating avatar");
 
     if (!user) {
       return res.status(404).json({ message: "User not found" });
@@ -78,7 +170,7 @@ const getProfile = async (req, res) => {
 
 const updateProfile = async (req, res) => {
   try {
-    const { skills, addSkill, removeSkill, about } = req.body;
+    const { skills, addSkill, removeSkill, about, achievements } = req.body;
 
     const user = await User.findById(req.user._id);
     if (!user) {
@@ -146,10 +238,135 @@ const updateProfile = async (req, res) => {
       user.about = normalizedAbout;
     }
 
+    if (typeof achievements !== "undefined") {
+      const nextAchievements = parseAchievements(achievements);
+      if (nextAchievements === null) {
+        return res
+          .status(400)
+          .json({ message: "Achievements must be an array or newline separated text" });
+      }
+      user.achievements = nextAchievements;
+    }
+
     await user.save();
 
     const updatedUser = await User.findById(req.user._id).select("-password");
 
+    return res.status(200).json(updatedUser);
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+};
+
+const updateProfileAssets = async (req, res) => {
+  try {
+    if (!hasCloudinaryConfig()) {
+      return res.status(500).json({
+        message:
+          "Cloudinary is not configured. Set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY and CLOUDINARY_API_SECRET.",
+      });
+    }
+
+    const user = await User.findById(req.user._id);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const avatarFile = req.files?.avatar?.[0];
+    if (avatarFile) {
+      if (!avatarFile.mimetype.startsWith("image/")) {
+        return res.status(400).json({ message: "Avatar must be an image file" });
+      }
+
+      if (user.avatar?.publicId) {
+        await deleteAsset(user.avatar.publicId, { resource_type: "image" });
+      }
+
+      const upload = await uploadBuffer(avatarFile.buffer, {
+        folder: "skillhive/avatars",
+        resource_type: "image",
+      });
+
+      user.avatar = {
+        url: upload.secure_url,
+        publicId: upload.public_id,
+      };
+    }
+
+    const resumeFile = req.files?.resume?.[0];
+    if (resumeFile) {
+      if (resumeFile.mimetype !== "application/pdf") {
+        return res.status(400).json({ message: "Resume must be a PDF file" });
+      }
+
+      const upload = await uploadBuffer(resumeFile.buffer, {
+        folder: "skillhive/resumes",
+        resource_type: "raw",
+      });
+
+      user.resume = {
+        url: upload.secure_url,
+        publicId: upload.public_id,
+        name: resumeFile.originalname,
+      };
+    }
+
+    const certificateFiles = req.files?.certificates || [];
+    if (certificateFiles.length) {
+      for (const file of certificateFiles.slice(0, 5)) {
+        const isPdf = file.mimetype === "application/pdf";
+        const isImage = file.mimetype.startsWith("image/");
+        if (!isPdf && !isImage) {
+          return res.status(400).json({
+            message: "Certificates must be PDF or image files",
+          });
+        }
+
+        const upload = await uploadBuffer(file.buffer, {
+          folder: "skillhive/certificates",
+          resource_type: isPdf ? "raw" : "image",
+        });
+
+        user.certificates.push({
+          url: upload.secure_url,
+          publicId: upload.public_id,
+          name: file.originalname,
+          uploadedAt: new Date(),
+        });
+      }
+    }
+
+    await user.save();
+
+    const updatedUser = await User.findById(req.user._id).select("-password");
+    return res.status(200).json(updatedUser);
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+};
+
+const deleteProfileAvatar = async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    if (!user.avatar?.url && !user.avatar?.publicId) {
+      return res.status(200).json({ message: "Avatar already removed" });
+    }
+
+    if (user.avatar?.publicId) {
+      await deleteAsset(user.avatar.publicId, { resource_type: "image" });
+    }
+
+    user.avatar = {
+      url: "",
+      publicId: "",
+    };
+    await user.save();
+
+    const updatedUser = await User.findById(req.user._id).select("-password");
     return res.status(200).json(updatedUser);
   } catch (error) {
     return res.status(500).json({ message: error.message });
@@ -194,9 +411,126 @@ const updateUserSkills = async (req, res) => {
   }
 };
 
+const changePassword = async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+
+    if (typeof currentPassword !== "string" || typeof newPassword !== "string") {
+      return res.status(400).json({ message: "Current and new password are required" });
+    }
+
+    if (newPassword.length < 6 || newPassword.length > 64) {
+      return res
+        .status(400)
+        .json({ message: "New password must be between 6 and 64 characters" });
+    }
+
+    const user = await User.findById(req.user._id).select("+password");
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const isMatch = await bcrypt.compare(currentPassword, user.password);
+    if (!isMatch) {
+      return res.status(400).json({ message: "Current password is incorrect" });
+    }
+
+    user.password = await bcrypt.hash(newPassword, 10);
+    user.authProvider = "local";
+    await user.save();
+
+    return res.status(200).json({ message: "Password changed successfully" });
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+};
+
+const changeEmail = async (req, res) => {
+  try {
+    const { newEmail, password } = req.body;
+
+    if (typeof newEmail !== "string" || typeof password !== "string") {
+      return res.status(400).json({ message: "New email and password are required" });
+    }
+
+    const normalizedEmail = newEmail.trim().toLowerCase();
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+    if (!emailRegex.test(normalizedEmail)) {
+      return res.status(400).json({ message: "Please provide a valid email" });
+    }
+
+    const user = await User.findById(req.user._id).select("+password email");
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      return res.status(400).json({ message: "Password is incorrect" });
+    }
+
+    if (user.email === normalizedEmail) {
+      return res.status(400).json({ message: "New email cannot be same as current email" });
+    }
+
+    const existing = await User.findOne({ email: normalizedEmail }).select("_id");
+    if (existing) {
+      return res.status(400).json({ message: "Email is already in use" });
+    }
+
+    user.email = normalizedEmail;
+    await user.save();
+
+    return res.status(200).json({
+      message: "Email changed successfully",
+      email: normalizedEmail,
+    });
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+};
+
+const updatePrivacySettings = async (req, res) => {
+  try {
+    const { showOnlineStatus } = req.body;
+    if (typeof showOnlineStatus !== "boolean") {
+      return res.status(400).json({ message: "showOnlineStatus must be boolean" });
+    }
+
+    const user = await User.findById(req.user._id);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    user.privacy = {
+      ...(user.privacy || {}),
+      showOnlineStatus,
+    };
+    await user.save();
+
+    return res.status(200).json({
+      message: "Privacy settings updated",
+      privacy: user.privacy,
+    });
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+};
+
 const getUsers = async (req, res) => {
   try {
-    const { skill, skills, mode } = req.query;
+    const {
+      skill,
+      skills,
+      mode,
+      minRating,
+      maxRating,
+      sortBy,
+      sortOrder,
+      page,
+      limit,
+    } = req.query;
     const filter = {
       _id: { $ne: req.user._id },
     };
@@ -222,8 +556,123 @@ const getUsers = async (req, res) => {
       }
     }
 
-    const users = await User.find(filter).select("-password");
+    if (typeof minRating !== "undefined" || typeof maxRating !== "undefined") {
+      filter.rating = {};
+
+      if (typeof minRating !== "undefined" && minRating !== "") {
+        const parsedMin = Number(minRating);
+        if (!Number.isNaN(parsedMin)) {
+          filter.rating.$gte = parsedMin;
+        }
+      }
+
+      if (typeof maxRating !== "undefined" && maxRating !== "") {
+        const parsedMax = Number(maxRating);
+        if (!Number.isNaN(parsedMax)) {
+          filter.rating.$lte = parsedMax;
+        }
+      }
+
+      if (!Object.keys(filter.rating).length) {
+        delete filter.rating;
+      }
+    }
+
+    const allowedSortFields = new Set(["rating", "name", "createdAt"]);
+    const resolvedSortField = allowedSortFields.has(sortBy) ? sortBy : "rating";
+    const resolvedSortOrder = normalizeSortOrder(sortOrder);
+
+    const pageNumber = parsePositiveInt(page, 1);
+    const pageSize = Math.min(parsePositiveInt(limit, 200), 200);
+    const skipCount = (pageNumber - 1) * pageSize;
+
+    const users = await User.find(filter)
+      .select("-password")
+      .sort({ [resolvedSortField]: resolvedSortOrder, createdAt: 1 })
+      .skip(skipCount)
+      .limit(pageSize);
+
     return res.status(200).json(users);
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+};
+
+const getSkillMatches = async (req, res) => {
+  try {
+    const currentUser = await User.findById(req.user._id).select("skills");
+    if (!currentUser) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const {
+      minScore,
+      limit,
+      minRating,
+      sortBy,
+      sortOrder,
+      skills,
+    } = req.query;
+
+    const requestedSkills = parseSkillQuery(skills);
+
+    const filter = {
+      _id: { $ne: req.user._id },
+    };
+
+    if (typeof minRating !== "undefined" && minRating !== "") {
+      const parsedMinRating = Number(minRating);
+      if (!Number.isNaN(parsedMinRating)) {
+        filter.rating = { $gte: parsedMinRating };
+      }
+    }
+
+    if (requestedSkills.length) {
+      filter.$or = requestedSkills.map((item) => ({
+        skills: {
+          $elemMatch: {
+            $regex: `^${escapeRegex(item)}$`,
+            $options: "i",
+          },
+        },
+      }));
+    }
+
+    const candidates = await User.find(filter)
+      .select("-password")
+      .limit(Math.min(parsePositiveInt(limit, 100), 200));
+
+    const minimumScore = Math.min(Math.max(parsePositiveInt(minScore, 0), 0), 100);
+
+    const scored = candidates
+      .map((candidate) => {
+        const { score, matchedSkills, missingSkills } = computeMatchScore(
+          currentUser.skills || [],
+          candidate.skills || []
+        );
+
+        return {
+          ...candidate.toObject(),
+          matchScore: score,
+          matchedSkills,
+          missingSkills,
+        };
+      })
+      .filter((item) => item.matchScore >= minimumScore);
+
+    const resolvedSortBy =
+      sortBy === "name" ? "name" : sortBy === "rating" ? "rating" : "matchScore";
+    const resolvedSortOrder = normalizeSortOrder(sortOrder);
+
+    scored.sort((a, b) => {
+      if (resolvedSortBy === "name") {
+        return resolvedSortOrder * a.name.localeCompare(b.name);
+      }
+
+      return resolvedSortOrder * ((a[resolvedSortBy] || 0) - (b[resolvedSortBy] || 0));
+    });
+
+    return res.status(200).json(scored);
   } catch (error) {
     return res.status(500).json({ message: error.message });
   }
@@ -232,10 +681,24 @@ const getUsers = async (req, res) => {
 const getPlatformOverview = async (req, res) => {
   try {
     const totalUsers = await User.countDocuments();
+    const connectionStats = await User.aggregate([
+      {
+        $project: {
+          connectionCount: { $size: { $ifNull: ["$connections", []] } },
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          totalConnectionRefs: { $sum: "$connectionCount" },
+        },
+      },
+    ]);
+    const totalConnections = Math.floor((connectionStats[0]?.totalConnectionRefs || 0) / 2);
 
     const developer = await User.findOne({ _id: { $ne: req.user._id } })
       .sort({ createdAt: 1 })
-      .select("name email about skills rating connections requestsSent requestsReceived");
+      .select("name email about skills rating avatar connections requestsSent requestsReceived");
 
     let connectionState = "none";
 
@@ -252,6 +715,7 @@ const getPlatformOverview = async (req, res) => {
     return res.status(200).json({
       stats: {
         totalUsers,
+        totalConnections,
       },
       developer: developer
         ? {
@@ -259,6 +723,7 @@ const getPlatformOverview = async (req, res) => {
             name: developer.name,
             email: developer.email,
             about: developer.about || "",
+            avatar: developer.avatar || { url: "", publicId: "" },
             skills: developer.skills || [],
             rating: developer.rating ?? 0,
           }
@@ -304,6 +769,17 @@ const sendConnectRequest = async (req, res) => {
     await currentUser.save();
     await targetUser.save();
 
+    await createUserNotification({
+      io: req.app.get("io"),
+      userId: targetUser._id,
+      type: "connection_request",
+      title: "New connection request",
+      body: `${currentUser.name} sent you a connection request`,
+      metadata: {
+        fromUserId: currentUser._id,
+      },
+    });
+
     return res.status(200).json({ message: "Connection request sent" });
   } catch (error) {
     return res.status(500).json({ message: error.message });
@@ -339,6 +815,17 @@ const acceptConnectRequest = async (req, res) => {
 
     await currentUser.save();
     await requesterUser.save();
+
+    await createUserNotification({
+      io: req.app.get("io"),
+      userId: requesterUser._id,
+      type: "request_accepted",
+      title: "Connection request accepted",
+      body: `${currentUser.name} accepted your request`,
+      metadata: {
+        acceptedByUserId: currentUser._id,
+      },
+    });
 
     return res.status(200).json({ message: "Connection request accepted" });
   } catch (error) {
@@ -376,20 +863,19 @@ const rejectConnectRequest = async (req, res) => {
 
 const getLeaderboard = async (req, res) => {
   try {
-    const limit = parseInt(req.query.limit) || 50;
+    const limit = parseInt(req.query.limit, 10) || 50;
 
-    // Get users sorted by rating (descending), then by skill count (descending)
     const topUsers = await User.find({})
-      .select("name email skills rating about")
+      .select("name email skills rating about avatar")
       .sort({ rating: -1, createdAt: 1 })
       .limit(limit);
 
-    // Add skill count and rank
     const leaderboard = topUsers.map((user, index) => ({
       rank: index + 1,
       _id: user._id,
       name: user.name,
       email: user.email,
+      avatar: user.avatar || { url: "", publicId: "" },
       skills: user.skills || [],
       skillCount: (user.skills || []).length,
       rating: user.rating ?? 0,
@@ -408,7 +894,6 @@ const rateUser = async (req, res) => {
     const { rating, comment } = req.body;
     const currentUserId = req.user._id;
 
-    // Validation
     if (!rating || typeof rating !== "number" || rating < 1 || rating > 5) {
       return res.status(400).json({ message: "Rating must be between 1 and 5" });
     }
@@ -483,7 +968,7 @@ const getUserReviews = async (req, res) => {
     const { userId } = req.params;
 
     const reviews = await Review.find({ reviewee: userId })
-      .populate("reviewer", "name email")
+      .populate("reviewer", "name email avatar")
       .select("rating comment reviewer createdAt updatedAt")
       .sort({ updatedAt: -1 });
 
@@ -496,8 +981,14 @@ const getUserReviews = async (req, res) => {
 module.exports = {
   getProfile,
   updateProfile,
+  updateProfileAssets,
+  deleteProfileAvatar,
   updateUserSkills,
+  changePassword,
+  changeEmail,
+  updatePrivacySettings,
   getUsers,
+  getSkillMatches,
   getPlatformOverview,
   sendConnectRequest,
   acceptConnectRequest,

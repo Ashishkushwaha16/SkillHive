@@ -1,242 +1,140 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { getLeaderboard, getPlatformOverview } from "../services/userService";
+import PageLayout from "../components/PageLayout";
+import { getHomePosts, getLeaderboard, getPlatformOverview } from "../services/userService";
 
 const Home = () => {
   const navigate = useNavigate();
-  const [stats, setStats] = useState(null);
+  const [stats, setStats] = useState({ totalUsers: 0, totalConnections: 0 });
   const [topMentors, setTopMentors] = useState([]);
+  const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
   const isAuthenticated = Boolean(localStorage.getItem("token"));
 
   useEffect(() => {
-    const fetchStats = async () => {
+    const load = async () => {
       try {
-        // Fetch top mentors (always available)
-        const mentors = await getLeaderboard();
-        setTopMentors(mentors.slice(0, 3));
+        const [leaderboard, feed] = await Promise.all([getLeaderboard(), getHomePosts()]);
+        setTopMentors(leaderboard.slice(0, 3));
+        setPosts(feed || []);
 
-        // Fetch platform overview if authenticated
         if (isAuthenticated) {
-          try {
-            const overview = await getPlatformOverview();
-            setStats(overview);
-          } catch (err) {
-            // Fail silently if not authenticated
-            setStats(null);
-          }
+          const overview = await getPlatformOverview();
+          setStats({
+            totalUsers: overview?.stats?.totalUsers || 0,
+            totalConnections: overview?.stats?.totalConnections || 0,
+          });
         }
-      } catch (err) {
-        console.error("Error fetching stats:", err);
+      } catch (error) {
+        setTopMentors([]);
+        setPosts([]);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchStats();
+    load();
   }, [isAuthenticated]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 via-blue-50 to-slate-100">
-      {/* Hero Section */}
-      <div className="mx-auto max-w-4xl px-4 py-20 text-center">
-        <h1 className="text-5xl font-bold text-slate-900 mb-4">
-          Connect with Mentors,<br /> Learn Together
-        </h1>
-        <p className="text-xl text-slate-600 mb-8 max-w-2xl mx-auto">
-          SkillHive is a peer-to-peer learning platform where you can discover mentors, share skills,
-          and grow together with a community of learners.
-        </p>
-
-        {!isAuthenticated && (
-          <div className="flex gap-4 justify-center mb-12">
-            <button
-              onClick={() => navigate("/register")}
-              className="bg-blue-700 hover:bg-blue-800 text-white font-semibold px-8 py-3 rounded-lg transition-colors"
-            >
-              Get Started Free
-            </button>
-            <button
-              onClick={() => navigate("/login")}
-              className="border-2 border-blue-700 text-blue-700 hover:bg-blue-50 font-semibold px-8 py-3 rounded-lg transition-colors"
-            >
-              Sign In
-            </button>
-          </div>
-        )}
-
-        {isAuthenticated && (
-          <div className="flex gap-4 justify-center mb-12">
-            <button
-              onClick={() => navigate("/explore")}
-              className="bg-blue-700 hover:bg-blue-800 text-white font-semibold px-8 py-3 rounded-lg transition-colors"
-            >
-              Explore Mentors
-            </button>
-            <button
-              onClick={() => navigate("/dashboard")}
-              className="border-2 border-blue-700 text-blue-700 hover:bg-blue-50 font-semibold px-8 py-3 rounded-lg transition-colors"
-            >
-              View Dashboard
-            </button>
-          </div>
-        )}
-      </div>
-
-      {loading ? (
-        <div className="mx-auto max-w-4xl px-4 pb-4 text-center">
-          <p className="text-sm text-slate-500">Loading live platform insights...</p>
-        </div>
-      ) : null}
-
-      <div className="mx-auto max-w-4xl px-4 pb-2">
-        <div className="rounded-xl border border-slate-200 bg-white p-4 text-center text-xs text-slate-600 shadow-sm">
-          Trusted by learners building real-world skills in web development, data, and product careers.
-        </div>
-      </div>
-
-      {/* Stats Section */}
-      {!loading && stats && isAuthenticated && (
-        <div className="mx-auto max-w-4xl px-4 py-12">
-          <div className="grid grid-cols-2 md:grid-cols-2 gap-6 mb-12">
-            <div className="rounded-xl border border-blue-200 bg-blue-50 p-8 text-center">
-              <div className="text-4xl font-bold text-blue-700 mb-2">
-                {stats.stats?.totalUsers || 0}
-              </div>
-              <p className="text-slate-600 font-semibold">Mentors & Learners</p>
-              <p className="text-sm text-slate-500 mt-1">Active community members</p>
-            </div>
-
-            <div className="rounded-xl border border-green-200 bg-green-50 p-8 text-center">
-              <div className="text-4xl font-bold text-green-700 mb-2">
-                {stats.stats?.totalUsers || 0}
-              </div>
-              <p className="text-slate-600 font-semibold">Connections Made</p>
-              <p className="text-sm text-slate-500 mt-1">Active learning partnerships</p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Top Mentors Section */}
-      {!loading && topMentors.length > 0 && (
-        <div className="mx-auto max-w-4xl px-4 py-12">
-          <h2 className="text-3xl font-bold text-slate-900 mb-8 text-center">
-            🏆 Top Mentors
-          </h2>
-
-          <div className="space-y-4">
-            {topMentors.map((mentor) => (
-              <div
-                key={mentor._id}
-                className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm hover:shadow-md transition-shadow cursor-pointer"
-                onClick={() => isAuthenticated ? navigate("/explore") : navigate("/login")}
+    <PageLayout
+      title="Skill Exchange Platform"
+      subtitle="Discover mentors, build trust through profiles, and collaborate in real-time conversations."
+    >
+      <section className="ui-card-soft p-6 md:p-8">
+        <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-blue-700">Professional Skill Network</p>
+            <h2 className="mt-3 text-3xl font-black tracking-tight text-slate-950 md:text-4xl">
+              Learn faster with real people, not random content.
+            </h2>
+            <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-600 md:text-base">
+              SkillHive helps you connect with the right people by skills, exchange knowledge through direct chat,
+              and build a meaningful long-term learning network.
+            </p>
+            <div className="mt-5 flex flex-wrap gap-3">
+              <button
+                type="button"
+                onClick={() => navigate(isAuthenticated ? "/explore" : "/register")}
+                className="ui-btn-primary"
               >
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex items-center gap-4">
-                    <div className="text-2xl font-bold text-slate-900 w-8">
-                      #{mentor.rank}
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-bold text-slate-900">{mentor.name}</h3>
-                      <p className="text-sm text-slate-600">{mentor.skillCount} skills</p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-3xl font-bold text-blue-700">
-                      {mentor.rating.toFixed(1)}
-                    </div>
-                    <p className="text-xs text-slate-500">Rating</p>
-                  </div>
-                </div>
-
-                {mentor.skills && mentor.skills.length > 0 && (
-                  <div className="flex flex-wrap gap-2">
-                    {mentor.skills.slice(0, 3).map((skill) => (
-                      <span
-                        key={skill}
-                        className="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-xs font-medium"
-                      >
-                        {skill}
-                      </span>
-                    ))}
-                    {mentor.skills.length > 3 && (
-                      <span className="bg-slate-100 text-slate-600 px-3 py-1 rounded-full text-xs font-medium">
-                        +{mentor.skills.length - 3} more
-                      </span>
-                    )}
-                  </div>
-                )}
-              </div>
-            ))}
+                {isAuthenticated ? "Explore Mentors" : "Create Account"}
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate("/messages")}
+                className="ui-btn-secondary"
+              >
+                Open Messages
+              </button>
+            </div>
           </div>
 
-          {!isAuthenticated ? (
-            <button
-              onClick={() => navigate("/leaderboard")}
-              className="w-full mt-8 border-2 border-blue-700 text-blue-700 hover:bg-blue-50 font-semibold px-8 py-3 rounded-lg transition-colors"
-            >
-              View Full Leaderboard
-            </button>
+          <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3">
+            <div className="rounded-2xl border border-slate-200 bg-white p-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Users</p>
+              <p className="mt-2 text-3xl font-extrabold text-slate-950">{stats.totalUsers}</p>
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-white p-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Connections</p>
+              <p className="mt-2 text-3xl font-extrabold text-slate-950">{stats.totalConnections}</p>
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-white p-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Top Mentors</p>
+              <p className="mt-2 text-3xl font-extrabold text-slate-950">{topMentors.length}</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="mt-6 grid gap-4 md:grid-cols-3">
+        <article className="ui-card p-5">
+          <h3 className="text-lg font-bold text-slate-900">Profile-driven discovery</h3>
+          <p className="mt-2 text-sm text-slate-600">Find people by actual skill sets, ratings, and meaningful profile context.</p>
+        </article>
+        <article className="ui-card p-5">
+          <h3 className="text-lg font-bold text-slate-900">Real-time communication</h3>
+          <p className="mt-2 text-sm text-slate-600">Message your connections instantly with read receipts and presence awareness.</p>
+        </article>
+        <article className="ui-card p-5">
+          <h3 className="text-lg font-bold text-slate-900">Trust and growth loop</h3>
+          <p className="mt-2 text-sm text-slate-600">Build credibility through ratings, achievements, and verified profile assets.</p>
+        </article>
+      </section>
+
+      <section className="mt-7">
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <h2 className="text-2xl font-extrabold text-slate-950">Home Feed</h2>
+          <button
+            type="button"
+            onClick={() => navigate("/leaderboard")}
+            className="ui-btn-secondary"
+          >
+            View Leaderboard
+          </button>
+        </div>
+
+        {loading ? <p className="text-sm text-slate-600">Loading feed...</p> : null}
+
+        <div className="space-y-4">
+          {posts.length ? (
+            posts.map((post) => (
+              <article key={post._id} className="ui-card p-6">
+                <h3 className="text-xl font-bold text-slate-900">{post.title}</h3>
+                <p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-slate-700">{post.description}</p>
+                <p className="mt-4 text-xs font-semibold uppercase tracking-[0.1em] text-slate-500">
+                  Posted {new Date(post.createdAt).toLocaleString()}
+                </p>
+              </article>
+            ))
           ) : (
-            <button
-              onClick={() => navigate("/leaderboard")}
-              className="w-full mt-8 bg-blue-700 hover:bg-blue-800 text-white font-semibold px-8 py-3 rounded-lg transition-colors"
-            >
-              View Full Leaderboard
-            </button>
+            <div className="ui-card p-6 text-sm text-slate-600">
+              No posts published yet. Ask an admin to publish the first update.
+            </div>
           )}
         </div>
-      )}
-
-      {/* Features Section */}
-      <div className="mx-auto max-w-4xl px-4 py-16">
-        <h2 className="text-3xl font-bold text-slate-900 mb-12 text-center">
-          Why Join SkillHive?
-        </h2>
-
-        <div className="grid md:grid-cols-3 gap-6">
-          <div className="rounded-xl border border-slate-200 bg-white p-6">
-            <div className="text-3xl mb-3">🎯</div>
-            <h3 className="text-lg font-bold text-slate-900 mb-2">Find Your Mentor</h3>
-            <p className="text-slate-600">
-              Discover experienced mentors in any skill you want to learn.
-            </p>
-          </div>
-
-          <div className="rounded-xl border border-slate-200 bg-white p-6">
-            <div className="text-3xl mb-3">🤝</div>
-            <h3 className="text-lg font-bold text-slate-900 mb-2">Make Connections</h3>
-            <p className="text-slate-600">
-              Build meaningful relationships with learners and experts in your field.
-            </p>
-          </div>
-
-          <div className="rounded-xl border border-slate-200 bg-white p-6">
-            <div className="text-3xl mb-3">📈</div>
-            <h3 className="text-lg font-bold text-slate-900 mb-2">Grow Together</h3>
-            <p className="text-slate-600">
-              Learn, teach, and grow with a supportive community of learners.
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* Footer CTA */}
-      <div className="mx-auto max-w-4xl px-4 py-16 text-center">
-        <h2 className="text-2xl font-bold text-slate-900 mb-4">
-          Ready to start your learning journey?
-        </h2>
-        {!isAuthenticated && (
-          <button
-            onClick={() => navigate("/register")}
-            className="bg-blue-700 hover:bg-blue-800 text-white font-semibold px-8 py-3 rounded-lg transition-colors"
-          >
-            Create Your Account Now
-          </button>
-        )}
-      </div>
-    </div>
+      </section>
+    </PageLayout>
   );
 };
 

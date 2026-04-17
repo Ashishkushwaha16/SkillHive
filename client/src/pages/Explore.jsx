@@ -1,14 +1,31 @@
 import { useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import PageLayout from "../components/PageLayout";
-import { getProfile, getUsers, sendConnectRequest } from "../services/userService";
+import SkillSearch from "../components/SkillSearch";
+import {
+  getProfile,
+  getSkillMatches,
+  getUsers,
+  rateUser,
+  sendConnectRequest,
+} from "../services/userService";
 
 const Explore = () => {
+  const [searchParams] = useSearchParams();
   const [skill, setSkill] = useState("");
   const [matchMode, setMatchMode] = useState("any");
+  const [viewMode, setViewMode] = useState("all");
+  const [minRating, setMinRating] = useState("");
+  const [maxRating, setMaxRating] = useState("");
+  const [sortBy, setSortBy] = useState("rating");
+  const [sortOrder, setSortOrder] = useState("desc");
+  const [minScore, setMinScore] = useState("");
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [statusByUser, setStatusByUser] = useState({});
+  const [ratingDraftByUser, setRatingDraftByUser] = useState({});
+  const [ratingLoadingByUser, setRatingLoadingByUser] = useState({});
   const [message, setMessage] = useState({ type: "", text: "" });
 
   const buildStatusMap = (profileData) => {
@@ -29,25 +46,40 @@ const Explore = () => {
     return nextStatus;
   };
 
-  const renderStars = (rating) => {
-    const stars = [];
-    const fullStars = Math.floor(rating);
-    for (let i = 0; i < 5; i++) {
-      if (i < fullStars) {
-        stars.push(<span key={i} className="text-yellow-400">★</span>);
-      } else {
-        stars.push(<span key={i} className="text-slate-300">★</span>);
-      }
-    }
-    return stars;
-  };
-
-  const fetchUsers = useCallback(async (searchSkill = "", mode = "any") => {
+  const fetchUsers = useCallback(async (filters = {}) => {
     try {
       setLoading(true);
       setError("");
+      const {
+        searchSkill = "",
+        skillMode = "any",
+        searchViewMode = "all",
+        searchMinRating = "",
+        searchMaxRating = "",
+        searchSortBy = "rating",
+        searchSortOrder = "desc",
+        searchMinScore = "",
+      } = filters;
+
       const [usersData, profileData] = await Promise.all([
-        getUsers(searchSkill, { multi: true, mode }),
+        searchViewMode === "matches"
+          ? getSkillMatches({
+              skills: searchSkill,
+              minScore: searchMinScore,
+              minRating: searchMinRating,
+              sortBy: searchSortBy === "createdAt" ? "matchScore" : searchSortBy,
+              sortOrder: searchSortOrder,
+              limit: 100,
+            })
+          : getUsers(searchSkill, {
+              multi: true,
+              mode: skillMode,
+              minRating: searchMinRating,
+              maxRating: searchMaxRating,
+              sortBy: searchSortBy,
+              sortOrder: searchSortOrder,
+              limit: 100,
+            }),
         getProfile(),
       ]);
       setUsers(usersData);
@@ -60,12 +92,23 @@ const Explore = () => {
   }, []);
 
   useEffect(() => {
-    fetchUsers();
-  }, [fetchUsers]);
+    const skillFromUrl = searchParams.get("skills") || "";
+    setSkill(skillFromUrl);
+    fetchUsers({ searchSkill: skillFromUrl });
+  }, [searchParams, fetchUsers]);
 
   const handleSearch = (e) => {
     e.preventDefault();
-    fetchUsers(skill, matchMode);
+    fetchUsers({
+      searchSkill: skill,
+      skillMode: matchMode,
+      searchViewMode: viewMode,
+      searchMinRating: minRating,
+      searchMaxRating: maxRating,
+      searchSortBy: sortBy,
+      searchSortOrder: sortOrder,
+      searchMinScore: minScore,
+    });
   };
 
   const handleConnect = (userId) => {
@@ -88,133 +131,201 @@ const Explore = () => {
       });
   };
 
+  const handleRateUser = async (userId) => {
+    const id = userId.toString();
+    const selectedRating = Number(ratingDraftByUser[id]);
+
+    if (!selectedRating || selectedRating < 1 || selectedRating > 5) {
+      setMessage({ type: "error", text: "Please select rating between 1 and 5" });
+      return;
+    }
+
+    setRatingLoadingByUser((prev) => ({ ...prev, [id]: true }));
+    setMessage({ type: "", text: "" });
+
+    try {
+      const result = await rateUser(id, selectedRating);
+      setUsers((prev) =>
+        prev.map((item) =>
+          item._id.toString() === id
+            ? { ...item, rating: typeof result.newRating === "number" ? result.newRating : item.rating }
+            : item
+        )
+      );
+
+      setMessage({
+        type: "success",
+        text: `Rating submitted. New rating: ${result.newRating?.toFixed?.(1) || result.newRating}`,
+      });
+    } catch (err) {
+      setMessage({ type: "error", text: err.message });
+    } finally {
+      setRatingLoadingByUser((prev) => ({ ...prev, [id]: false }));
+    }
+  };
+
   return (
     <PageLayout title="Explore Mentors" subtitle="Find people by skill and start connecting.">
-      <div className="rounded-2xl border border-slate-200 bg-white p-8 shadow-lg">
-
-      <form onSubmit={handleSearch} className="mt-5">
-        <input
-          type="text"
-          value={skill}
-          onChange={(e) => setSkill(e.target.value)}
-          placeholder="Search skills (e.g., react,node,mongodb)"
-          className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none transition-all duration-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+      <div className="space-y-6">
+        <SkillSearch
+          skill={skill}
+          matchMode={matchMode}
+          viewMode={viewMode}
+          minRating={minRating}
+          maxRating={maxRating}
+          sortBy={sortBy}
+          sortOrder={sortOrder}
+          minScore={minScore}
+          onSkillChange={setSkill}
+          onMatchModeChange={setMatchMode}
+          onViewModeChange={setViewMode}
+          onMinRatingChange={setMinRating}
+          onMaxRatingChange={setMaxRating}
+          onSortByChange={setSortBy}
+          onSortOrderChange={setSortOrder}
+          onMinScoreChange={setMinScore}
+          onSearch={handleSearch}
+          onClear={() => {
+            setSkill("");
+            setMatchMode("any");
+            setViewMode("all");
+            setMinRating("");
+            setMaxRating("");
+            setSortBy("rating");
+            setSortOrder("desc");
+            setMinScore("");
+            fetchUsers({});
+          }}
+          connectedCount={Object.values(statusByUser).filter((value) => value === "connected").length}
+          pendingCount={Object.values(statusByUser).filter((value) => value === "pending").length}
+          resultsCount={users.length}
         />
-        <div className="mt-3 flex flex-wrap items-center gap-3">
-          <p className="text-xs text-slate-500">
-            Tip: comma-separated skills allowed.
+
+        {skill.trim() && (
+          <p className="text-sm text-slate-500">
+            Active filter: <span className="font-semibold text-slate-950">{skill.trim()}</span>
           </p>
-          <label className="text-xs font-semibold text-slate-600" htmlFor="matchMode">
-            Match:
-          </label>
-          <select
-            id="matchMode"
-            value={matchMode}
-            onChange={(e) => setMatchMode(e.target.value)}
-            className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700"
-          >
-            <option value="any">Any Skill</option>
-            <option value="all">All Skills</option>
-          </select>
-        </div>
-        <div className="flex gap-3 mt-4">
-          <button
-            type="submit"
-            className="flex-1 rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white transition-colors duration-200 hover:bg-blue-700"
-          >
-            Search
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setSkill("");
-              setMatchMode("any");
-              fetchUsers();
-            }}
-            className="rounded-xl border border-slate-300 bg-white px-5 py-3 font-semibold text-slate-700 transition-colors duration-200 hover:bg-slate-100"
-          >
-            Clear
-          </button>
-        </div>
-      </form>
+        )}
 
-      {skill.trim() && (
-        <p className="mt-3 text-sm text-slate-500">
-          Active filter: <span className="font-semibold text-blue-700">{skill.trim()}</span>
-        </p>
-      )}
+        {message.text && (
+          <p className={`text-sm font-medium ${message.type === "success" ? "text-emerald-600" : "text-rose-600"}`}>
+            {message.text}
+          </p>
+        )}
 
-      {message.text && (
-        <p className={`mt-4 text-sm font-medium ${message.type === "success" ? "text-green-600" : "text-red-600"}`}>
-          {message.text}
-        </p>
-      )}
+        {loading && <p className="text-slate-600">Loading users...</p>}
+        {error && <p className="text-rose-600">{error}</p>}
 
-      {loading && <p className="mt-6 text-slate-600">Loading users...</p>}
-      {error && <p className="mt-6 text-red-600">{error}</p>}
-
-      {!loading && !error && (
-        <div className="mt-6 grid gap-4 md:grid-cols-2">
-          {users.length > 0 ? (
-            users.map((user) => (
-              <div key={user._id} className="rounded-xl border border-slate-200 bg-gradient-to-br from-blue-50 to-white p-6 shadow-sm transition-all duration-200 hover:shadow-md hover:border-blue-300">
-                <div className="flex items-start justify-between mb-3">
-                  <div>
-                    <h3 className="text-lg font-bold text-slate-900">{user.name}</h3>
-                    <p className="text-sm text-slate-600">{user.email}</p>
-                  </div>
-                  <div className="text-right">
-                    <div className="flex justify-end gap-1 mb-1">
-                      {renderStars(user.rating ?? 0)}
+        {!loading && !error && (
+          <div className="grid gap-4 sm:gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+            {users.length > 0 ? (
+              users.map((user) => (
+                <article key={user._id} className="ui-card-soft p-4 sm:p-6 transition-all duration-200 hover:-translate-y-1 hover:shadow-[0_28px_80px_-30px_rgba(37,99,235,0.38)]">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="inline-flex rounded-full border border-blue-100 bg-white px-3 py-1 text-[10px] sm:text-[11px] font-semibold uppercase tracking-[0.18em] text-blue-700">
+                        Mentor
+                      </div>
+                      <h3 className="mt-2 text-lg sm:text-xl font-extrabold text-slate-950 truncate">{user.name}</h3>
+                      <p className="text-xs sm:text-sm text-slate-600 truncate">{user.email}</p>
                     </div>
-                    <p className="text-sm font-bold text-slate-900">{(user.rating ?? 0).toFixed(1)}</p>
+                    <div className="rounded-lg sm:rounded-2xl bg-slate-950 px-2 sm:px-3 py-2 text-right text-white flex-shrink-0">
+                      <p className="text-lg sm:text-2xl font-black leading-none">{(user.rating ?? 0).toFixed(1)}</p>
+                      <p className="text-[9px] sm:text-[11px] uppercase tracking-[0.14em] text-slate-300">Rating</p>
+                    </div>
                   </div>
-                </div>
 
-                {user.about && (
-                  <p className="text-sm text-slate-600 italic mb-3">{user.about}</p>
-                )}
+                  {typeof user.matchScore === "number" ? (
+                    <div className="mt-3 inline-flex rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-emerald-700">
+                      Match {user.matchScore}%
+                    </div>
+                  ) : null}
 
-                <div className="mt-3 flex flex-wrap gap-2 mb-4">
-                  {user.skills?.length ? (
-                    user.skills.map((item) => (
-                      <span
-                        key={item}
-                        className="rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-700"
-                      >
-                        {item}
-                      </span>
-                    ))
-                  ) : (
-                    <span className="text-sm text-slate-500">No skills added</span>
+                  {user.about && (
+                    <p className="mt-3 text-xs sm:text-sm leading-5 sm:leading-6 text-slate-600 line-clamp-2">{user.about}</p>
                   )}
-                </div>
 
-                <button
-                  type="button"
-                  onClick={() => handleConnect(user._id)}
-                  disabled={statusByUser[user._id] === "pending" || statusByUser[user._id] === "connected"}
-                  className={`w-full rounded-lg px-4 py-2 text-sm font-semibold text-white transition-all duration-200 ${
-                    statusByUser[user._id] === "connected"
-                      ? "bg-green-600 hover:bg-green-700"
+                  <div className="mt-4 flex flex-wrap gap-1.5">
+                    {user.skills?.length ? (
+                      user.skills.slice(0, 3).map((item) => (
+                        <span
+                          key={item}
+                          className="rounded-full border border-white/70 bg-white px-2.5 py-1 text-xs font-semibold text-blue-700 shadow-sm"
+                        >
+                          {item}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="text-xs text-slate-500">No skills</span>
+                    )}
+                    {user.skills?.length > 3 && (
+                      <span className="rounded-full border border-white/70 bg-white px-2.5 py-1 text-xs font-semibold text-slate-500">
+                        +{user.skills.length - 3}
+                      </span>
+                    )}
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => handleConnect(user._id)}
+                    disabled={statusByUser[user._id] === "pending" || statusByUser[user._id] === "connected"}
+                    className={`mt-4 w-full rounded-lg sm:rounded-2xl px-3 sm:px-4 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold text-white transition-all duration-200 ${
+                      statusByUser[user._id] === "connected"
+                        ? "bg-emerald-600 hover:bg-emerald-700"
+                        : statusByUser[user._id] === "pending"
+                          ? "cursor-not-allowed bg-slate-400"
+                          : "bg-slate-950 hover:-translate-y-0.5 hover:bg-slate-800"
+                    }`}
+                  >
+                    {statusByUser[user._id] === "connected"
+                      ? "Connected"
                       : statusByUser[user._id] === "pending"
-                        ? "bg-slate-400 cursor-not-allowed"
-                        : "bg-blue-600 hover:bg-blue-700"
-                  }`}
-                >
-                  {statusByUser[user._id] === "connected"
-                    ? "✓ Connected"
-                    : statusByUser[user._id] === "pending"
-                      ? "⏳ Pending"
-                      : "+ Connect"}
-                </button>
+                        ? "Pending"
+                        : "Connect"}
+                  </button>
+
+                    {statusByUser[user._id] === "connected" ? (
+                      <div className="mt-3 rounded-lg sm:rounded-2xl border border-slate-200 bg-white p-2.5 sm:p-3">
+                        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Rate</p>
+                        <div className="mt-2 flex flex-col sm:flex-row flex-wrap items-center gap-2">
+                          <select
+                            value={ratingDraftByUser[user._id] || ""}
+                            onChange={(e) =>
+                              setRatingDraftByUser((prev) => ({
+                                ...prev,
+                                [user._id]: e.target.value,
+                              }))
+                            }
+                            className="w-full sm:flex-1 rounded-lg border border-slate-300 bg-white px-2.5 py-2 text-xs sm:text-sm font-semibold text-slate-700"
+                          >
+                            <option value="">Select</option>
+                            <option value="1">1</option>
+                            <option value="2">2</option>
+                            <option value="3">3</option>
+                            <option value="4">4</option>
+                            <option value="5">5</option>
+                          </select>
+
+                          <button
+                            type="button"
+                            onClick={() => handleRateUser(user._id)}
+                            disabled={ratingLoadingByUser[user._id]}
+                            className="w-full sm:w-auto ui-btn-secondary rounded-lg px-3 sm:px-4 py-2 text-xs sm:text-sm"
+                          >
+                            {ratingLoadingByUser[user._id] ? "..." : "Submit"}
+                          </button>
+                        </div>
+                      </div>
+                    ) : null}
+                </article>
+              ))
+            ) : (
+              <div className="ui-card col-span-full p-6 sm:p-8 text-center text-slate-600">
+                No users found.
               </div>
-            ))
-          ) : (
-            <p className="text-slate-600">No users found.</p>
-          )}
-        </div>
-      )}
+            )}
+          </div>
+        )}
       </div>
     </PageLayout>
   );

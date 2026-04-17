@@ -27,52 +27,62 @@ const Leaderboard = () => {
       title="Top Mentors"
       subtitle="Discover the best mentors on SkillHive based on rating and expertise"
     >
+      <div className="mb-6 grid gap-4 sm:grid-cols-3">
+        {[
+          { label: "Visible mentors", value: users.length.toString() },
+          {
+            label: "Average rating",
+            value: users.length ? (users.reduce((sum, user) => sum + user.rating, 0) / users.length).toFixed(1) : "0.0",
+          },
+          { label: "Community focus", value: "Expert help" },
+        ].map((item) => (
+          <div key={item.label} className="ui-card-soft p-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">{item.label}</p>
+            <p className="mt-2 text-2xl font-semibold text-slate-900">{item.value}</p>
+          </div>
+        ))}
+      </div>
+
       {loading ? (
-        <div className="text-center text-slate-600 py-8">Loading leaderboard...</div>
+        <div className="ui-card p-8 text-center text-slate-600">Loading leaderboard...</div>
       ) : error ? (
-        <div className="bg-red-100 text-red-700 px-4 py-3 rounded-lg">
+        <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-red-700">
           Error: {error}
         </div>
       ) : users.length === 0 ? (
-        <div className="text-center text-slate-600 py-8">No mentors yet</div>
+        <div className="ui-card p-8 text-center text-slate-600">No mentors yet</div>
       ) : (
         <div className="space-y-4">
           {users.map((user) => (
             <div
               key={user._id}
-              className="ui-card-soft p-6 transition-all duration-200 hover:shadow-md"
+              className="ui-card-soft border border-transparent p-6 transition-all duration-200 hover:-translate-y-0.5 hover:border-blue-100 hover:shadow-lg"
             >
-              {/* Header: Rank, Name, Rating */}
-              <div className="flex items-start justify-between mb-3">
+              <div className="flex flex-wrap items-start justify-between gap-4">
                 <div className="flex items-center gap-4">
-                  <div className="text-2xl font-bold text-slate-900 w-8">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-900 text-lg font-semibold text-white shadow-sm">
                     #{user.rank}
                   </div>
                   <div>
-                    <h3 className="text-lg font-bold text-slate-900">{user.name}</h3>
+                    <h3 className="text-lg font-semibold text-slate-900">{user.name}</h3>
                     <p className="text-sm text-slate-600">{user.email}</p>
                   </div>
                 </div>
-                <div className="text-right">
-                  <div className="text-3xl font-bold text-blue-700">
-                    {user.rating.toFixed(1)}
-                  </div>
-                  <p className="text-xs text-slate-500">Rating</p>
+
+                <div className="rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-right">
+                  <div className="text-3xl font-semibold text-blue-700">{user.rating.toFixed(1)}</div>
+                  <p className="text-xs font-medium uppercase tracking-[0.2em] text-blue-700">Rating</p>
                 </div>
               </div>
 
-              {/* About */}
-              {user.about && (
-                <p className="text-sm text-slate-600 mb-3 italic">{user.about}</p>
-              )}
+              {user.about && <p className="mt-4 text-sm leading-6 text-slate-600">{user.about}</p>}
 
-              {/* Skills */}
               {user.skills && user.skills.length > 0 && (
-                <div className="flex flex-wrap gap-2">
+                <div className="mt-4 flex flex-wrap gap-2">
                   {user.skills.map((skill) => (
                     <span
                       key={skill}
-                      className="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-xs font-medium"
+                      className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700"
                     >
                       {skill}
                     </span>

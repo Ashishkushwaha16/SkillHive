@@ -1,6 +1,12 @@
 import { useEffect, useState } from "react";
 import PageLayout from "../components/PageLayout";
-import { getProfile, updateProfile, updateUserSkills } from "../services/userService";
+import {
+  getProfile,
+  updateProfile,
+  updateUserSkills,
+  deleteProfileAvatar,
+  uploadProfileAssets,
+} from "../services/userService";
 
 const MAX_SKILL_LENGTH = 20;
 const MAX_ABOUT_LENGTH = 200;
@@ -11,21 +17,27 @@ const Profile = () => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [savingAssets, setSavingAssets] = useState(false);
   const [loadError, setLoadError] = useState("");
   const [message, setMessage] = useState({ type: "", text: "" });
-  const [skillInput, setSkillInput] = useState("");
   const [aboutInput, setAboutInput] = useState("");
-  const [savingAbout, setSavingAbout] = useState(false);
+  const [skillInput, setSkillInput] = useState("");
+  const [achievementsInput, setAchievementsInput] = useState("");
+  const [assetFiles, setAssetFiles] = useState({
+    avatar: null,
+    resume: null,
+    certificates: [],
+  });
 
   const loadProfile = async () => {
     try {
       setLoading(true);
-      const data = await getProfile();
-      setUser(data);
-      setAboutInput(data.about || "");
-      setLoadError("");
-    } catch (err) {
-      setLoadError(err.message);
+      const profile = await getProfile();
+      setUser(profile);
+      setAboutInput(profile.about || "");
+      setAchievementsInput((profile.achievements || []).join("\n"));
+    } catch (error) {
+      setLoadError(error.message);
     } finally {
       setLoading(false);
     }
@@ -35,104 +47,142 @@ const Profile = () => {
     loadProfile();
   }, []);
 
-  useEffect(() => {
-    if (!message.text) {
-      return;
-    }
-
-    const timer = setTimeout(() => {
-      setMessage({ type: "", text: "" });
-    }, 2500);
-
-    return () => clearTimeout(timer);
-  }, [message]);
-
-  const setFeedback = (type, text) => {
+  const showMessage = (type, text) => {
     setMessage({ type, text });
   };
 
-  const handleSaveAbout = async () => {
-    if (aboutInput.trim().length > MAX_ABOUT_LENGTH) {
-      setFeedback("error", `About must be ${MAX_ABOUT_LENGTH} characters or less`);
+  const handleSaveProfileText = async () => {
+    if (!user) {
       return;
     }
 
-    const previousUser = user;
-    const normalizedAbout = aboutInput.trim();
+    const nextAbout = aboutInput.trim();
 
-    setUser((prev) => ({ ...prev, about: normalizedAbout }));
+    if (nextAbout.length > MAX_ABOUT_LENGTH) {
+      showMessage("error", `About length must be ${MAX_ABOUT_LENGTH} characters or less`);
+      return;
+    }
+
+    const achievements = achievementsInput
+      .split("\n")
+      .map((item) => item.trim())
+      .filter(Boolean);
 
     try {
-      setSavingAbout(true);
-      const updatedUser = await updateProfile({ about: normalizedAbout });
-      setUser(updatedUser);
-      setAboutInput(updatedUser.about || "");
-      setFeedback("success", "About updated");
-    } catch (err) {
-      setUser(previousUser);
-      setFeedback("error", err.message);
+      setSaving(true);
+      const updated = await updateProfile({
+        about: nextAbout,
+        achievements,
+      });
+      setUser(updated);
+      showMessage("success", "Profile details updated");
+    } catch (error) {
+      showMessage("error", error.message);
     } finally {
-      setSavingAbout(false);
+      setSaving(false);
     }
   };
 
   const handleAddSkill = async () => {
+    if (!user) {
+      return;
+    }
+
     const nextSkill = normalizeSkill(skillInput);
 
     if (!nextSkill) {
-      setFeedback("error", "Please enter a skill");
+      showMessage("error", "Skill cannot be empty");
       return;
     }
 
     if (nextSkill.length > MAX_SKILL_LENGTH) {
-      setFeedback("error", `Skill must be ${MAX_SKILL_LENGTH} characters or less`);
+      showMessage("error", `Skill length must be ${MAX_SKILL_LENGTH} characters or less`);
       return;
     }
 
-    const exists = (user?.skills || []).some(
-      (item) => item.toLowerCase() === nextSkill.toLowerCase()
-    );
-
-    if (exists) {
-      setFeedback("error", "Skill already added");
+    if ((user.skills || []).some((skill) => skill.toLowerCase() === nextSkill)) {
+      showMessage("error", "Skill already added");
       return;
     }
-
-    const previousUser = user;
-    const nextSkills = [...(user?.skills || []), nextSkill];
-
-    setUser((prev) => ({ ...prev, skills: nextSkills }));
-    setSkillInput("");
 
     try {
       setSaving(true);
-      const updatedUser = await updateUserSkills(nextSkills);
+      const updatedUser = await updateUserSkills([...(user.skills || []), nextSkill]);
       setUser(updatedUser);
-      setFeedback("success", "Skill added");
-    } catch (err) {
-      setFeedback("error", err.message);
-      setUser(previousUser);
+      setSkillInput("");
+      showMessage("success", "Skill added");
+    } catch (error) {
+      showMessage("error", error.message);
     } finally {
       setSaving(false);
     }
   };
 
-  const handleRemoveSkill = async (skillToRemove) => {
-    const previousUser = user;
-    const nextSkills = (user?.skills || []).filter((skill) => skill !== skillToRemove);
-
-    setUser((prev) => ({ ...prev, skills: nextSkills }));
+  const handleRemoveSkill = async (skill) => {
+    if (!user) {
+      return;
+    }
 
     try {
       setSaving(true);
-      const updatedUser = await updateUserSkills(nextSkills);
+      const updatedSkills = (user.skills || []).filter((item) => item.toLowerCase() !== skill.toLowerCase());
+      const updatedUser = await updateUserSkills(updatedSkills);
       setUser(updatedUser);
-      setFeedback("success", "Skill removed");
-    } catch (err) {
-      setFeedback("error", err.message);
-      setUser(previousUser);
+      showMessage("success", "Skill removed");
+    } catch (error) {
+      showMessage("error", error.message);
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleUploadAssets = async (event) => {
+    event.preventDefault();
+
+    const formData = new FormData();
+    if (assetFiles.avatar) {
+      formData.append("avatar", assetFiles.avatar);
+    }
+    if (assetFiles.resume) {
+      formData.append("resume", assetFiles.resume);
+    }
+    if (assetFiles.certificates.length) {
+      assetFiles.certificates.forEach((file) => formData.append("certificates", file));
+    }
+
+    if ([...formData.keys()].length === 0) {
+      showMessage("error", "Please choose at least one file to upload");
+      return;
+    }
+
+    try {
+      setSavingAssets(true);
+      const updated = await uploadProfileAssets(formData);
+      setUser(updated);
+      setAssetFiles({ avatar: null, resume: null, certificates: [] });
+      showMessage("success", "Files uploaded successfully");
+    } catch (error) {
+      showMessage("error", error.message);
+    } finally {
+      setSavingAssets(false);
+    }
+  };
+
+  const handleDeleteAvatar = async () => {
+    if (!user?.avatar?.url) {
+      showMessage("error", "No avatar to delete");
+      return;
+    }
+
+    try {
+      setSavingAssets(true);
+      const updated = await deleteProfileAvatar();
+      setUser(updated);
+      showMessage("success", "Avatar removed successfully");
+    } catch (error) {
+      showMessage("error", error.message);
+    } finally {
+      setSavingAssets(false);
     }
   };
 
@@ -141,128 +191,206 @@ const Profile = () => {
   }
 
   if (loadError) {
-    return <p className="text-center text-red-600">{loadError}</p>;
+    return <p className="text-center text-rose-700">{loadError}</p>;
   }
 
+  const avatarLetter = (user?.name || "U").slice(0, 1).toUpperCase();
+
   return (
-    <PageLayout title="Profile" subtitle="Update your details and keep your skills fresh.">
-      <div className="ui-card p-8">
-      <h2 className="mb-5 text-xl font-semibold text-slate-900">Your Information</h2>
-
-      <div className="space-y-3 text-slate-700">
-        <p>
-          <span className="font-semibold">Name:</span> {user?.name || "-"}
-        </p>
-        <p>
-          <span className="font-semibold">Email:</span> {user?.email || "-"}
-        </p>
-        <p>
-          <span className="font-semibold">Rating:</span> {user?.rating ?? 0}
-        </p>
-        <div>
-          <p className="font-semibold">About:</p>
-          <p className="mt-1 text-slate-600">{user?.about || "No about info added"}</p>
-        </div>
-      </div>
-
-      <div className="mt-8">
-        <h3 className="text-lg font-semibold text-slate-900">Edit About</h3>
-        <textarea
-          value={aboutInput}
-          onChange={(e) => {
-            setAboutInput(e.target.value);
-            if (message.text) {
-              setMessage({ type: "", text: "" });
-            }
-          }}
-          rows={4}
-          placeholder="Write something about yourself"
-          className="ui-input mt-3"
-        />
-        <div className="mt-2 flex items-center justify-between">
-          <p
-            className={`text-xs ${
-              aboutInput.trim().length > MAX_ABOUT_LENGTH ? "text-red-600" : "text-slate-500"
-            }`}
-          >
-            {aboutInput.trim().length}/{MAX_ABOUT_LENGTH} characters
-          </p>
-          <button
-            type="button"
-            onClick={handleSaveAbout}
-            disabled={savingAbout}
-            className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition-colors duration-200 hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {savingAbout ? "Saving..." : "Save About"}
-          </button>
-        </div>
-      </div>
-
-      <div className="mt-8">
-        <h3 className="text-lg font-semibold text-slate-900">Skills</h3>
-
-        <form
-          className="mt-3 flex gap-3"
-          onSubmit={(e) => {
-            e.preventDefault();
-            handleAddSkill();
-          }}
-        >
-          <input
-            type="text"
-            value={skillInput}
-            maxLength={MAX_SKILL_LENGTH}
-            onChange={(e) => {
-              setSkillInput(e.target.value);
-              if (message.text) {
-                setMessage({ type: "", text: "" });
-              }
-            }}
-            placeholder="Add skill"
-            className="ui-input flex-1"
-          />
-          <button
-            type="submit"
-            disabled={saving || !skillInput.trim()}
-            className="rounded-xl bg-blue-600 px-4 py-3 font-semibold text-white transition-all duration-200 hover:-translate-y-0.5 hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {saving ? "Saving..." : "Add"}
-          </button>
-        </form>
-        <p className="mt-2 text-xs text-slate-500">
-          {skillInput.trim().length}/{MAX_SKILL_LENGTH} characters
-        </p>
-
-        <div className="mt-4 flex flex-wrap gap-2">
-          {user?.skills?.length ? (
-            user.skills.map((skill) => (
-              <span
-                key={skill}
-                className="inline-flex items-center gap-2 rounded-full bg-blue-100 px-3 py-1 text-sm font-semibold text-blue-700 transition-transform duration-200 hover:-translate-y-0.5"
-              >
-                {skill}
+    <PageLayout
+      title="Profile / Dashboard"
+      subtitle="Manage your profile, documents, achievements, and professional identity."
+    >
+      <div className="grid gap-6 lg:grid-cols-[0.95fr_1.05fr]">
+        <section className="ui-card-soft p-6">
+          <div className="flex items-center gap-4">
+            {user?.avatar?.url ? (
+              <img src={user.avatar.url} alt="Avatar" className="h-20 w-20 rounded-3xl object-cover" />
+            ) : (
+              <div className="flex h-20 w-20 items-center justify-center rounded-3xl bg-slate-900 text-3xl font-black text-white">
+                {avatarLetter}
+              </div>
+            )}
+            <div>
+              <h2 className="text-2xl font-extrabold text-slate-950">{user?.name}</h2>
+              <p className="text-sm text-slate-600">{user?.email}</p>
+              <div className="mt-2 flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => handleRemoveSkill(skill)}
-                  disabled={saving}
-                  className="rounded-full px-1 text-blue-700 transition-colors duration-200 hover:bg-blue-200 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-60"
+                  onClick={handleDeleteAvatar}
+                  className="rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-700 hover:bg-rose-100"
+                  disabled={savingAssets || !user?.avatar?.url}
                 >
-                  ✕
+                  Delete Photo
                 </button>
-              </span>
-            ))
-          ) : (
-            <p className="text-sm text-slate-500">No skills added</p>
-          )}
-        </div>
-      </div>
+              </div>
+            </div>
+          </div>
 
-      {saving && <p className="mt-4 text-sm text-slate-500">Saving skills...</p>}
-      {message.text && (
-        <p className={`mt-3 text-sm ${message.type === "success" ? "text-emerald-600" : "text-red-600"}`}>
-          {message.text}
-        </p>
-      )}
+          <div className="mt-5 grid gap-3 sm:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3">
+            <div className="rounded-2xl border border-white/80 bg-white p-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Rating</p>
+              <p className="mt-2 text-2xl font-black text-slate-950">{user?.rating ?? 0}</p>
+            </div>
+            <div className="rounded-2xl border border-white/80 bg-white p-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Connections</p>
+              <p className="mt-2 text-2xl font-black text-slate-950">{user?.connections?.length || 0}</p>
+            </div>
+            <div className="rounded-2xl border border-white/80 bg-white p-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Certificates</p>
+              <p className="mt-2 text-2xl font-black text-slate-950">{user?.certificates?.length || 0}</p>
+            </div>
+          </div>
+
+          <div className="mt-5 rounded-2xl border border-slate-200 bg-white p-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Resume</p>
+            {user?.resume?.url ? (
+              <a href={user.resume.url} target="_blank" rel="noreferrer" className="mt-2 inline-block text-sm font-semibold text-blue-700">
+                {user.resume.name || "View Resume PDF"}
+              </a>
+            ) : (
+              <p className="mt-2 text-sm text-slate-500">No resume uploaded</p>
+            )}
+          </div>
+
+          <div className="mt-5 rounded-2xl border border-slate-200 bg-white p-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Achievements</p>
+            {(user?.achievements || []).length ? (
+              <ul className="mt-2 space-y-1 text-sm text-slate-700">
+                {user.achievements.map((item) => (
+                  <li key={item}>- {item}</li>
+                ))}
+              </ul>
+            ) : (
+              <p className="mt-2 text-sm text-slate-500">No achievements added</p>
+            )}
+          </div>
+        </section>
+
+        <div className="space-y-6">
+          <section className="ui-card p-6">
+            <h3 className="text-xl font-bold text-slate-900">About & Achievements</h3>
+            <textarea
+              value={aboutInput}
+              onChange={(event) => setAboutInput(event.target.value)}
+              rows={4}
+              placeholder="Write about your learning goals"
+              className="ui-input mt-3 resize-none"
+            />
+            <p className="mt-1 text-xs text-slate-500">{aboutInput.trim().length}/{MAX_ABOUT_LENGTH}</p>
+
+            <textarea
+              value={achievementsInput}
+              onChange={(event) => setAchievementsInput(event.target.value)}
+              rows={5}
+              placeholder="One achievement per line"
+              className="ui-input mt-3 resize-none"
+            />
+
+            <button type="button" onClick={handleSaveProfileText} className="ui-btn-primary mt-3" disabled={saving}>
+              {saving ? "Saving..." : "Save Profile Details"}
+            </button>
+          </section>
+
+          <section className="ui-card p-6">
+            <h3 className="text-xl font-bold text-slate-900">Skills</h3>
+            <form
+              className="mt-3 flex gap-2"
+              onSubmit={(event) => {
+                event.preventDefault();
+                handleAddSkill();
+              }}
+            >
+              <input
+                type="text"
+                value={skillInput}
+                maxLength={MAX_SKILL_LENGTH}
+                onChange={(event) => setSkillInput(event.target.value)}
+                placeholder="Add skill"
+                className="ui-input flex-1"
+              />
+              <button type="submit" className="ui-btn-secondary" disabled={saving || !skillInput.trim()}>
+                Add
+              </button>
+            </form>
+
+            <div className="mt-4 flex flex-wrap gap-2">
+              {(user?.skills || []).map((skill) => (
+                <span key={skill} className="inline-flex items-center gap-2 rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-sm font-semibold text-blue-700">
+                  {skill}
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveSkill(skill)}
+                    className="rounded-full px-1 text-blue-700 hover:bg-blue-200 hover:text-rose-600"
+                  >
+                    x
+                  </button>
+                </span>
+              ))}
+            </div>
+          </section>
+
+          <section className="ui-card p-6">
+            <h3 className="text-xl font-bold text-slate-900">Manage Photos and Files</h3>
+            <form onSubmit={handleUploadAssets} className="mt-3 space-y-3">
+              <div>
+                <label htmlFor="avatar" className="mb-1 block text-sm font-semibold text-slate-700">Profile Photo (image)</label>
+                <input
+                  id="avatar"
+                  type="file"
+                  accept="image/*"
+                  onChange={(event) => setAssetFiles((prev) => ({ ...prev, avatar: event.target.files?.[0] || null }))}
+                  className="ui-input"
+                />
+              </div>
+              <div>
+                <label htmlFor="resume" className="mb-1 block text-sm font-semibold text-slate-700">Resume (PDF)</label>
+                <input
+                  id="resume"
+                  type="file"
+                  accept="application/pdf"
+                  onChange={(event) => setAssetFiles((prev) => ({ ...prev, resume: event.target.files?.[0] || null }))}
+                  className="ui-input"
+                />
+              </div>
+              <div>
+                <label htmlFor="certificates" className="mb-1 block text-sm font-semibold text-slate-700">Certificates (multiple)</label>
+                <input
+                  id="certificates"
+                  type="file"
+                  multiple
+                  accept="application/pdf,image/*"
+                  onChange={(event) =>
+                    setAssetFiles((prev) => ({
+                      ...prev,
+                      certificates: Array.from(event.target.files || []).slice(0, 5),
+                    }))
+                  }
+                  className="ui-input"
+                />
+              </div>
+              <button type="submit" className="ui-btn-primary" disabled={savingAssets}>
+                {savingAssets ? "Uploading..." : "Upload Files"}
+              </button>
+            </form>
+
+            {(user?.certificates || []).length ? (
+              <div className="mt-4 space-y-2">
+                {user.certificates.map((cert) => (
+                  <a key={cert.publicId} href={cert.url} target="_blank" rel="noreferrer" className="block text-sm font-semibold text-blue-700">
+                    {cert.name || "Certificate"}
+                  </a>
+                ))}
+              </div>
+            ) : null}
+          </section>
+
+          {message.text ? (
+            <p className={`text-sm ${message.type === "success" ? "text-emerald-700" : "text-rose-700"}`}>
+              {message.text}
+            </p>
+          ) : null}
+        </div>
       </div>
     </PageLayout>
   );

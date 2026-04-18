@@ -5,6 +5,7 @@ import SkillSearch from "../components/SkillSearch";
 import {
   getProfile,
   getSkillMatches,
+  getUserReviews,
   getUsers,
   rateUser,
   sendConnectRequest,
@@ -26,6 +27,9 @@ const Explore = () => {
   const [statusByUser, setStatusByUser] = useState({});
   const [ratingDraftByUser, setRatingDraftByUser] = useState({});
   const [ratingLoadingByUser, setRatingLoadingByUser] = useState({});
+  const [reviewsByUser, setReviewsByUser] = useState({});
+  const [reviewsLoadingByUser, setReviewsLoadingByUser] = useState({});
+  const [expandedReviewsUserId, setExpandedReviewsUserId] = useState("");
   const [message, setMessage] = useState({ type: "", text: "" });
 
   const buildStatusMap = (profileData) => {
@@ -164,6 +168,31 @@ const Explore = () => {
     }
   };
 
+  const handleToggleReviews = async (userId) => {
+    const id = userId.toString();
+
+    if (expandedReviewsUserId === id) {
+      setExpandedReviewsUserId("");
+      return;
+    }
+
+    setExpandedReviewsUserId(id);
+
+    if (reviewsByUser[id]) {
+      return;
+    }
+
+    try {
+      setReviewsLoadingByUser((prev) => ({ ...prev, [id]: true }));
+      const reviews = await getUserReviews(id);
+      setReviewsByUser((prev) => ({ ...prev, [id]: reviews || [] }));
+    } catch (err) {
+      setMessage({ type: "error", text: err.message });
+    } finally {
+      setReviewsLoadingByUser((prev) => ({ ...prev, [id]: false }));
+    }
+  };
+
   return (
     <PageLayout title="Explore Mentors" subtitle="Find people by skill and start connecting.">
       <div className="space-y-6">
@@ -283,6 +312,47 @@ const Explore = () => {
                         ? "Pending"
                         : "Connect"}
                   </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleToggleReviews(user._id)}
+                    className="mt-2 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                  >
+                    {expandedReviewsUserId === user._id.toString() ? "Hide Feedback" : "View Feedback"}
+                  </button>
+
+                  {expandedReviewsUserId === user._id.toString() ? (
+                    <div className="mt-3 rounded-lg border border-slate-200 bg-white p-3">
+                      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
+                        Public mentor feedback
+                      </p>
+                      {reviewsLoadingByUser[user._id] ? (
+                        <p className="mt-2 text-sm text-slate-600">Loading feedback...</p>
+                      ) : (reviewsByUser[user._id] || []).length ? (
+                        <div className="mt-2 space-y-2">
+                          {(reviewsByUser[user._id] || []).slice(0, 3).map((review) => (
+                            <article key={review._id} className="rounded-xl bg-slate-50 p-3">
+                              <div className="flex items-center justify-between gap-2">
+                                <p className="text-sm font-semibold text-slate-900">
+                                  {(review.reviewer?.name || "User")}
+                                </p>
+                                <span className="rounded-full bg-slate-900 px-2 py-0.5 text-[10px] font-bold text-white">
+                                  {review.rating}/5
+                                </span>
+                              </div>
+                              {review.comment ? (
+                                <p className="mt-1 text-sm text-slate-600">{review.comment}</p>
+                              ) : (
+                                <p className="mt-1 text-sm text-slate-500">No comment added.</p>
+                              )}
+                            </article>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="mt-2 text-sm text-slate-600">No public feedback yet.</p>
+                      )}
+                    </div>
+                  ) : null}
 
                     {statusByUser[user._id] === "connected" ? (
                       <div className="mt-3 rounded-lg sm:rounded-2xl border border-slate-200 bg-white p-2.5 sm:p-3">

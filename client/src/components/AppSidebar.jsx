@@ -26,17 +26,14 @@ const AppSidebar = ({
   isAdmin,
   onLogout,
   unreadMessagesCount,
-  unreadNotificationsCount,
 }) => {
   const navItems = [
     { to: "/", label: "Home" },
     { to: "/dashboard", label: "Dashboard" },
     { to: "/profile", label: "Profile" },
     { to: "/messages", label: "Messages", badge: unreadMessagesCount },
-    { to: "/notifications", label: "Notifications", badge: unreadNotificationsCount },
     { to: "/settings", label: "Settings" },
-    { to: "/feedback", label: "Feedback" },
-    { to: "/help", label: "Support" },
+    { to: "/contact", label: "Contact Us" },
   ];
 
   return (

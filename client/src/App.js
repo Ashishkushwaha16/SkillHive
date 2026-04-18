@@ -23,12 +23,13 @@ import About from "./pages/About";
 import FAQ from "./pages/FAQ";
 import Contact from "./pages/Contact";
 import HelpCentre from "./pages/HelpCentre";
+import Privacy from "./pages/Privacy";
+import Terms from "./pages/Terms";
 import Leaderboard from "./pages/Leaderboard";
 import Home from "./pages/Home";
 import Messages from "./pages/Messages";
 import Notifications from "./pages/Notifications";
 import Settings from "./pages/Settings";
-import Feedback from "./pages/Feedback";
 import AdminMessages from "./pages/AdminMessages";
 import AdminPosts from "./pages/AdminPosts";
 import NotFound from "./pages/NotFound";
@@ -37,6 +38,8 @@ import {
   getChatConversations,
   getProfile,
   getNotifications,
+  markAllNotificationsRead,
+  markNotificationRead,
 } from "./services/userService";
 import { SOCKET_ORIGIN } from "./config/api";
 
@@ -47,6 +50,7 @@ const AppShell = ({
   currentUser,
   unreadMessagesCount,
   unreadNotificationsCount,
+  setUnreadNotificationsCount,
 }) => {
   const location = useLocation();
   const navigate = useNavigate();
@@ -54,7 +58,13 @@ const AppShell = ({
   const [isDesktop, setIsDesktop] = useState(() => window.innerWidth >= 1024);
   const [topSearch, setTopSearch] = useState("");
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const [notificationPanelOpen, setNotificationPanelOpen] = useState(false);
+  const [notificationItems, setNotificationItems] = useState([]);
+  const [notificationPanelLoading, setNotificationPanelLoading] = useState(false);
+  const [notificationPanelActionLoading, setNotificationPanelActionLoading] = useState(false);
+  const [notificationFilter, setNotificationFilter] = useState("all");
   const profileMenuRef = useRef(null);
+  const notificationMenuRef = useRef(null);
   const isAuthPage =
     location.pathname === "/login" ||
     location.pathname === "/register" ||
@@ -72,11 +82,12 @@ const AppShell = ({
     "/explore": "Explore",
     "/notifications": "Notifications",
     "/settings": "Settings",
-    "/feedback": "Feedback",
     "/faq": "FAQ",
     "/leaderboard": "Leaderboard",
     "/about": "About",
     "/contact": "Contact",
+    "/privacy": "Privacy",
+    "/terms": "Terms",
     "/messages": "Messages",
     "/admin/messages": "Admin Inbox",
     "/admin/posts": "Admin Posts",
@@ -105,12 +116,21 @@ const AppShell = ({
 
   useEffect(() => {
     setProfileMenuOpen(false);
+    setNotificationPanelOpen(false);
   }, [location.pathname]);
 
   useEffect(() => {
     const handleDocumentClick = (event) => {
-      if (profileMenuRef.current && !profileMenuRef.current.contains(event.target)) {
+      const clickedProfile = profileMenuRef.current && profileMenuRef.current.contains(event.target);
+      const clickedNotifications =
+        notificationMenuRef.current && notificationMenuRef.current.contains(event.target);
+
+      if (!clickedProfile) {
         setProfileMenuOpen(false);
+      }
+
+      if (!clickedNotifications) {
+        setNotificationPanelOpen(false);
       }
     };
 
@@ -139,6 +159,115 @@ const AppShell = ({
 
   const profileLetter = (currentUser?.name || "U").slice(0, 1).toUpperCase();
 
+  const formatNotificationTime = (value) => {
+    if (!value) {
+      return "";
+    }
+
+    return new Date(value).toLocaleString([], {
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
+  const getNotificationMeta = (type) => {
+    switch (type) {
+      case "new_message":
+        return { label: "Message", icon: "M4 5h16v10H7l-3 3V5z" };
+      case "connection_request":
+        return { label: "Request", icon: "M7 12a4 4 0 1 1 8 0" };
+      case "request_accepted":
+        return { label: "Accepted", icon: "M5 12l4 4L19 6" };
+      case "missed_call":
+        return { label: "Missed Call", icon: "M7 7l10 10M17 7L7 17" };
+      default:
+        return { label: "Alert", icon: "M12 6v6m0 4h.01" };
+    }
+  };
+
+  const visibleNotificationItems =
+    notificationFilter === "unread"
+      ? notificationItems.filter((item) => !item.isRead)
+      : notificationItems;
+
+  const loadNotificationPanel = async () => {
+    if (!localStorage.getItem("token")) {
+      setNotificationItems([]);
+      return;
+    }
+
+    try {
+      setNotificationPanelLoading(true);
+      const data = await getNotifications(20);
+      setNotificationItems(data.notifications || []);
+      setUnreadNotificationsCount(data.unreadCount || 0);
+    } catch (error) {
+      setNotificationItems([]);
+    } finally {
+      setNotificationPanelLoading(false);
+    }
+  };
+
+  const toggleNotificationPanel = async () => {
+    setProfileMenuOpen(false);
+    setNotificationPanelOpen((prev) => {
+      const next = !prev;
+      if (next) {
+        setNotificationFilter("all");
+        loadNotificationPanel();
+      }
+      return next;
+    });
+  };
+
+  const handleNotificationRead = async (notificationId) => {
+    try {
+      setNotificationPanelActionLoading(true);
+      await markNotificationRead(notificationId);
+      await loadNotificationPanel();
+    } catch (error) {
+      await loadNotificationPanel();
+    } finally {
+      setNotificationPanelActionLoading(false);
+    }
+  };
+
+  const handleNotificationReadAll = async () => {
+    try {
+      setNotificationPanelActionLoading(true);
+      await markAllNotificationsRead();
+      await loadNotificationPanel();
+    } finally {
+      setNotificationPanelActionLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    const handleIncomingNotification = (event) => {
+      const incoming = event?.detail;
+      if (!incoming?._id) {
+        return;
+      }
+
+      setNotificationItems((prev) => {
+        const exists = prev.some((item) => item._id === incoming._id);
+        if (exists) {
+          return prev;
+        }
+
+        return [incoming, ...prev].slice(0, 20);
+      });
+    };
+
+    window.addEventListener("notification:new", handleIncomingNotification);
+
+    return () => {
+      window.removeEventListener("notification:new", handleIncomingNotification);
+    };
+  }, []);
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#f8fbff] via-[#eef4ff] to-[#f6faf8]">
       {!isAuthPage && isAuthenticated ? (
@@ -148,7 +277,6 @@ const AppShell = ({
           isAdmin={isAdmin}
           onLogout={handleLogout}
           unreadMessagesCount={unreadMessagesCount}
-          unreadNotificationsCount={unreadNotificationsCount}
         />
       ) : null}
 
@@ -190,6 +318,133 @@ const AppShell = ({
                   </svg>
                 </button>
               </form>
+
+              <div ref={notificationMenuRef} className="relative flex-shrink-0">
+                <button
+                  type="button"
+                  onClick={toggleNotificationPanel}
+                  className="relative flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 hover:bg-slate-100"
+                  aria-label="Open notifications"
+                  title="Notifications"
+                >
+                  <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.4-1.4A2 2 0 0 1 18 14.17V11a6 6 0 1 0-12 0v3.17c0 .53-.21 1.04-.59 1.41L4 17h5" />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M10 17a2 2 0 0 0 4 0" />
+                  </svg>
+                  {unreadNotificationsCount > 0 ? (
+                    <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold leading-none text-white">
+                      {unreadNotificationsCount > 99 ? "99+" : unreadNotificationsCount}
+                    </span>
+                  ) : null}
+                </button>
+
+                {notificationPanelOpen ? (
+                  <div className="absolute right-0 mt-2 w-[22rem] max-w-[92vw] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
+                    <div className="flex items-center justify-between gap-3 border-b border-slate-100 px-4 py-3">
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Notifications</p>
+                        <p className="text-sm font-bold text-slate-900">Stay on top of activity</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleNotificationReadAll}
+                        className="rounded-lg border border-slate-300 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-100"
+                        disabled={notificationPanelActionLoading}
+                      >
+                        Mark all read
+                      </button>
+                    </div>
+
+                    <div className="flex items-center gap-2 border-b border-slate-100 px-4 py-2">
+                      <button
+                        type="button"
+                        onClick={() => setNotificationFilter("all")}
+                        className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                          notificationFilter === "all"
+                            ? "bg-slate-900 text-white"
+                            : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                        }`}
+                      >
+                        All
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setNotificationFilter("unread")}
+                        className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                          notificationFilter === "unread"
+                            ? "bg-slate-900 text-white"
+                            : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                        }`}
+                      >
+                        Unread
+                      </button>
+                    </div>
+
+                    <div className="max-h-[24rem] overflow-y-auto p-2">
+                      {notificationPanelLoading ? (
+                        <p className="px-3 py-4 text-sm text-slate-600">Loading notifications...</p>
+                      ) : visibleNotificationItems.length ? (
+                        <div className="space-y-2">
+                          {visibleNotificationItems.map((item) => {
+                            const meta = getNotificationMeta(item.type);
+
+                            return (
+                              <article
+                                key={item._id}
+                                className={`rounded-xl border px-3 py-2.5 ${
+                                  item.isRead ? "border-slate-200 bg-white" : "border-blue-200 bg-blue-50"
+                                }`}
+                              >
+                                <div className="flex items-start justify-between gap-2">
+                                  <div className="min-w-0 flex-1">
+                                    <div className="flex items-center gap-2">
+                                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-slate-900 text-white">
+                                        <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                          <path strokeLinecap="round" strokeLinejoin="round" d={meta.icon} />
+                                        </svg>
+                                      </span>
+                                      <p className="text-sm font-semibold text-slate-900">{item.title}</p>
+                                    </div>
+                                    <p className="mt-1 text-xs text-slate-600">{item.body}</p>
+                                    <div className="mt-1.5 flex items-center gap-2 text-[11px] text-slate-400">
+                                      <span className="rounded-full bg-slate-100 px-2 py-0.5 font-semibold text-slate-500">
+                                        {meta.label}
+                                      </span>
+                                      <span>{formatNotificationTime(item.createdAt)}</span>
+                                    </div>
+                                  </div>
+                                  {!item.isRead ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleNotificationRead(item._id)}
+                                      className="rounded-lg bg-slate-900 px-2 py-1 text-[11px] font-semibold text-white hover:bg-slate-800"
+                                      disabled={notificationPanelActionLoading}
+                                    >
+                                      Read
+                                    </button>
+                                  ) : null}
+                                </div>
+                              </article>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <p className="px-3 py-4 text-sm text-slate-600">No notifications yet.</p>
+                      )}
+                    </div>
+
+                    <div className="border-t border-slate-100 px-4 py-3">
+                      <button
+                        type="button"
+                        onClick={() => navigate("/notifications")}
+                        className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100"
+                      >
+                        Open full notifications page
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
 
               <div ref={profileMenuRef} className="relative flex-shrink-0">
                 <button
@@ -252,11 +507,13 @@ const AppShell = ({
             <Route path="/messages" element={<ProtectedRoute><Messages /></ProtectedRoute>} />
             <Route path="/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
             <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
-            <Route path="/feedback" element={<ProtectedRoute><Feedback /></ProtectedRoute>} />
+            <Route path="/feedback" element={<Navigate to="/contact" replace />} />
             <Route path="/faq" element={<FAQ />} />
             <Route path="/leaderboard" element={<Leaderboard />} />
             <Route path="/about" element={<About />} />
             <Route path="/contact" element={<Contact />} />
+            <Route path="/privacy" element={<Privacy />} />
+            <Route path="/terms" element={<Terms />} />
             <Route
               path="/admin/messages"
               element={
@@ -405,6 +662,14 @@ function App() {
       setUnreadNotificationsCount(unreadCount || 0);
     });
 
+    socket.on("notification:new", (notification) => {
+      window.dispatchEvent(
+        new CustomEvent("notification:new", {
+          detail: notification,
+        })
+      );
+    });
+
     return () => {
       socket.disconnect();
     };
@@ -418,6 +683,7 @@ function App() {
         currentUser={currentUser}
         unreadMessagesCount={unreadMessagesCount}
         unreadNotificationsCount={unreadNotificationsCount}
+        setUnreadNotificationsCount={setUnreadNotificationsCount}
         onLogout={() => {
           localStorage.removeItem("token");
           localStorage.removeItem("user");

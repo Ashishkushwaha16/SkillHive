@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import PageLayout from "../components/PageLayout";
+import ChatBot from "../components/ChatBot";
 import { LEGAL_LAST_UPDATED, LEGAL_VERSION, SUPPORT_EMAIL } from "../config/siteMeta";
 
 const HelpCentre = () => {
@@ -64,6 +65,8 @@ const HelpCentre = () => {
           </div>
         </section>
       </div>
+
+      <ChatBot />
     </PageLayout>
   );
 };

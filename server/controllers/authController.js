@@ -133,8 +133,15 @@ const forgotPassword = async (req, res, next) => {
     user.resetPasswordExpires = new Date(Date.now() + 15 * 60 * 1000);
     await user.save({ validateBeforeSave: false });
 
-    const clientOrigin = process.env.CLIENT_ORIGIN || "http://localhost:3000";
-    const resetUrl = `${clientOrigin}/reset-password?token=${rawToken}`;
+    const clientOrigin = process.env.CLIENT_ORIGIN;
+    if (!clientOrigin && process.env.NODE_ENV === "production") {
+      return res.status(500).json({
+        message: "Password reset is temporarily unavailable. Please contact support.",
+      });
+    }
+
+    const effectiveClientOrigin = clientOrigin || "http://localhost:3000";
+    const resetUrl = `${effectiveClientOrigin}/reset-password?token=${rawToken}`;
 
     let emailSent = false;
     try {

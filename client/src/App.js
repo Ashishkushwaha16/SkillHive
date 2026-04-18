@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   BrowserRouter,
   Navigate,
@@ -47,6 +47,8 @@ const AppShell = ({
   isAuthenticated,
   isAdmin,
   onLogout,
+  authNotice,
+  onDismissAuthNotice,
   currentUser,
   unreadMessagesCount,
   unreadNotificationsCount,
@@ -268,8 +270,38 @@ const AppShell = ({
     };
   }, []);
 
+  useEffect(() => {
+    if (!authNotice) {
+      return undefined;
+    }
+
+    const timerId = window.setTimeout(() => {
+      onDismissAuthNotice();
+    }, 4500);
+
+    return () => {
+      window.clearTimeout(timerId);
+    };
+  }, [authNotice, onDismissAuthNotice]);
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#f8fbff] via-[#eef4ff] to-[#f6faf8]">
+      {authNotice ? (
+        <div className="fixed right-3 top-3 z-[70] w-[22rem] max-w-[92vw] rounded-xl border border-amber-300 bg-amber-50 px-3 py-2.5 shadow-lg">
+          <div className="flex items-start justify-between gap-2">
+            <p className="text-sm font-semibold text-amber-900">{authNotice}</p>
+            <button
+              type="button"
+              onClick={onDismissAuthNotice}
+              className="rounded-md border border-amber-300 bg-white px-2 py-0.5 text-xs font-semibold text-amber-900 hover:bg-amber-100"
+              aria-label="Dismiss session notice"
+            >
+              Dismiss
+            </button>
+          </div>
+        </div>
+      ) : null}
+
       {!isAuthPage && isAuthenticated ? (
         <AppSidebar
           isOpen={sidebarOpen}
@@ -548,8 +580,42 @@ function App() {
   const [currentUser, setCurrentUser] = useState(null);
   const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
   const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
+  const [authNotice, setAuthNotice] = useState(() => sessionStorage.getItem("authNotice") || "");
 
-  const syncAuthState = () => {
+  const dismissAuthNotice = useCallback(() => {
+    sessionStorage.removeItem("authNotice");
+    setAuthNotice("");
+  }, []);
+
+  const clearAuthSession = useCallback((options = {}) => {
+    const shouldShowNotice = Boolean(options.showExpiredNotice);
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    setIsAuthenticated(false);
+    setIsAdmin(false);
+    setCurrentUser(null);
+    setUnreadMessagesCount(0);
+    setUnreadNotificationsCount(0);
+
+    if (shouldShowNotice) {
+      const message = "Session expired. Please login again.";
+      sessionStorage.setItem("authNotice", message);
+      setAuthNotice(message);
+    }
+
+    window.dispatchEvent(new Event("authChange"));
+  }, []);
+
+  const isUnauthorizedError = useCallback((error) => {
+    const message = (error?.message || "").toLowerCase();
+    return (
+      message.includes("not authorized") ||
+      message.includes("session expired") ||
+      message.includes("invalid token")
+    );
+  }, []);
+
+  const syncAuthState = useCallback(() => {
     const token = localStorage.getItem("token");
     const storedUser = localStorage.getItem("user");
 
@@ -570,9 +636,9 @@ function App() {
       setIsAdmin(false);
       setCurrentUser(null);
     }
-  };
+  }, []);
 
-  const refreshCurrentUser = async () => {
+  const refreshCurrentUser = useCallback(async () => {
     if (!localStorage.getItem("token")) {
       setCurrentUser(null);
       return;
@@ -583,12 +649,17 @@ function App() {
       localStorage.setItem("user", JSON.stringify(profile));
       setCurrentUser(profile);
     } catch (error) {
+      if (isUnauthorizedError(error)) {
+        clearAuthSession({ showExpiredNotice: true });
+        return;
+      }
+
       const fallbackUser = JSON.parse(localStorage.getItem("user") || "null");
       setCurrentUser(fallbackUser);
     }
-  };
+  }, [clearAuthSession, isUnauthorizedError]);
 
-  const refreshUnreadMessagesCount = async () => {
+  const refreshUnreadMessagesCount = useCallback(async () => {
     if (!localStorage.getItem("token")) {
       setUnreadMessagesCount(0);
       return;
@@ -598,11 +669,16 @@ function App() {
       const data = await getChatConversations();
       setUnreadMessagesCount(data.totalUnreadCount || 0);
     } catch (error) {
+      if (isUnauthorizedError(error)) {
+        clearAuthSession({ showExpiredNotice: true });
+        return;
+      }
+
       setUnreadMessagesCount(0);
     }
-  };
+  }, [clearAuthSession, isUnauthorizedError]);
 
-  const refreshNotifications = async () => {
+  const refreshNotifications = useCallback(async () => {
     if (!localStorage.getItem("token")) {
       setUnreadNotificationsCount(0);
       return;
@@ -612,9 +688,14 @@ function App() {
       const data = await getNotifications(20);
       setUnreadNotificationsCount(data.unreadCount || 0);
     } catch (error) {
+      if (isUnauthorizedError(error)) {
+        clearAuthSession({ showExpiredNotice: true });
+        return;
+      }
+
       setUnreadNotificationsCount(0);
     }
-  };
+  }, [clearAuthSession, isUnauthorizedError]);
 
   useEffect(() => {
     syncAuthState();
@@ -645,7 +726,12 @@ function App() {
       window.removeEventListener("chatUnreadChange", handleChatUnreadChange);
       window.removeEventListener("focus", refreshNotifications);
     };
-  }, []);
+  }, [
+    refreshCurrentUser,
+    refreshNotifications,
+    refreshUnreadMessagesCount,
+    syncAuthState,
+  ]);
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -670,28 +756,29 @@ function App() {
       );
     });
 
+    socket.on("connect_error", (error) => {
+      if (isUnauthorizedError(error)) {
+        clearAuthSession({ showExpiredNotice: true });
+      }
+    });
+
     return () => {
       socket.disconnect();
     };
-  }, [isAuthenticated]);
+  }, [isAuthenticated, clearAuthSession, isUnauthorizedError]);
 
   return (
     <BrowserRouter>
       <AppShell
         isAuthenticated={isAuthenticated}
         isAdmin={isAdmin}
+        authNotice={authNotice}
+        onDismissAuthNotice={dismissAuthNotice}
         currentUser={currentUser}
         unreadMessagesCount={unreadMessagesCount}
         unreadNotificationsCount={unreadNotificationsCount}
         setUnreadNotificationsCount={setUnreadNotificationsCount}
-        onLogout={() => {
-          localStorage.removeItem("token");
-          localStorage.removeItem("user");
-          setCurrentUser(null);
-          setUnreadMessagesCount(0);
-          setUnreadNotificationsCount(0);
-          window.dispatchEvent(new Event("authChange"));
-        }}
+        onLogout={clearAuthSession}
       />
     </BrowserRouter>
   );

@@ -1,6 +1,8 @@
 import { API_ENDPOINTS } from "../config/api";
+import { requestJson } from "./apiClient";
 
 const API_BASE_URL = API_ENDPOINTS.users;
+const withAuthHandling = { handleUnauthorized: true };
 
 const getAuthHeaders = () => {
   const token = localStorage.getItem("token");
@@ -17,50 +19,26 @@ const getAuthHeaders = () => {
 };
 
 export const getProfile = async () => {
-  const response = await fetch(`${API_BASE_URL}/profile`, {
+  return requestJson(`${API_BASE_URL}/profile`, {
     method: "GET",
     headers: getAuthHeaders(),
-  });
-
-  const result = await response.json();
-
-  if (!response.ok) {
-    throw new Error(result.message || "Failed to fetch profile");
-  }
-
-  return result;
+  }, withAuthHandling);
 };
 
 export const updateProfile = async (data) => {
-  const response = await fetch(`${API_BASE_URL}/profile`, {
+  return requestJson(`${API_BASE_URL}/profile`, {
     method: "PUT",
     headers: getAuthHeaders(),
     body: JSON.stringify(data),
-  });
-
-  const result = await response.json();
-
-  if (!response.ok) {
-    throw new Error(result.message || "Failed to update profile");
-  }
-
-  return result;
+  }, withAuthHandling);
 };
 
 export const updateUserSkills = async (skills) => {
-  const response = await fetch(`${API_BASE_URL}/skills`, {
+  return requestJson(`${API_BASE_URL}/skills`, {
     method: "PUT",
     headers: getAuthHeaders(),
     body: JSON.stringify({ skills }),
-  });
-
-  const result = await response.json();
-
-  if (!response.ok) {
-    throw new Error(result.message || "Failed to update skills");
-  }
-
-  return result;
+  }, withAuthHandling);
 };
 
 export const getUsers = async (skill = "", options = {}) => {
@@ -101,18 +79,10 @@ export const getUsers = async (skill = "", options = {}) => {
   const queryString = params.toString();
   const url = queryString ? `${API_BASE_URL}?${queryString}` : API_BASE_URL;
 
-  const response = await fetch(url, {
+  return requestJson(url, {
     method: "GET",
     headers: getAuthHeaders(),
-  });
-
-  const result = await response.json();
-
-  if (!response.ok) {
-    throw new Error(result.message || "Failed to fetch users");
-  }
-
-  return result;
+  }, withAuthHandling);
 };
 
 export const getSkillMatches = async (options = {}) => {
@@ -145,111 +115,55 @@ export const getSkillMatches = async (options = {}) => {
   const queryString = params.toString();
   const url = queryString ? `${API_BASE_URL}/matches?${queryString}` : `${API_BASE_URL}/matches`;
 
-  const response = await fetch(url, {
+  return requestJson(url, {
     method: "GET",
     headers: getAuthHeaders(),
-  });
-
-  const result = await response.json();
-
-  if (!response.ok) {
-    throw new Error(result.message || "Failed to fetch skill matches");
-  }
-
-  return result;
+  }, withAuthHandling);
 };
 
 export const getPlatformOverview = async () => {
-  const response = await fetch(`${API_BASE_URL}/platform`, {
+  return requestJson(`${API_BASE_URL}/platform`, {
     method: "GET",
     headers: getAuthHeaders(),
-  });
-
-  const result = await response.json();
-
-  if (!response.ok) {
-    throw new Error(result.message || "Failed to load platform details");
-  }
-
-  return result;
+  }, withAuthHandling);
 };
 
 export const sendConnectRequest = async (userId) => {
-  const response = await fetch(`${API_BASE_URL}/connect/${userId}`, {
+  return requestJson(`${API_BASE_URL}/connect/${userId}`, {
     method: "POST",
     headers: getAuthHeaders(),
-  });
-
-  const result = await response.json();
-
-  if (!response.ok) {
-    throw new Error(result.message || "Failed to send request");
-  }
-
-  return result;
+  }, withAuthHandling);
 };
 
 export const acceptConnectRequest = async (userId) => {
-  const response = await fetch(`${API_BASE_URL}/accept/${userId}`, {
+  return requestJson(`${API_BASE_URL}/accept/${userId}`, {
     method: "POST",
     headers: getAuthHeaders(),
-  });
-
-  const result = await response.json();
-
-  if (!response.ok) {
-    throw new Error(result.message || "Failed to accept request");
-  }
-
-  return result;
+  }, withAuthHandling);
 };
 
 export const rejectConnectRequest = async (userId) => {
-  const response = await fetch(`${API_BASE_URL}/reject/${userId}`, {
+  return requestJson(`${API_BASE_URL}/reject/${userId}`, {
     method: "POST",
     headers: getAuthHeaders(),
-  });
-
-  const result = await response.json();
-
-  if (!response.ok) {
-    throw new Error(result.message || "Failed to reject request");
-  }
-
-  return result;
+  }, withAuthHandling);
 };
 
 export const sendMessage = async (messageData) => {
-  const response = await fetch(API_ENDPOINTS.messages, {
+  return requestJson(API_ENDPOINTS.messages, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
     body: JSON.stringify(messageData),
   });
-
-  const result = await response.json();
-
-  if (!response.ok) {
-    throw new Error(result.message || result.error || "Failed to send message");
-  }
-
-  return result;
 };
 
 export const getMessages = async () => {
-  const response = await fetch(API_ENDPOINTS.messages, {
+  return requestJson(API_ENDPOINTS.messages, {
     method: "GET",
     headers: getAuthHeaders(),
-  });
-
-  const result = await response.json();
-
-  if (!response.ok) {
-    throw new Error(result.message || result.error || "Failed to load messages");
-  }
-
-  return result;
+  }, withAuthHandling);
 };
 
 export const getDirectMessages = async (userId, options = {}) => {
@@ -268,318 +182,158 @@ export const getDirectMessages = async (userId, options = {}) => {
     ? `${API_ENDPOINTS.chat}/direct/${userId}?${query}`
     : `${API_ENDPOINTS.chat}/direct/${userId}`;
 
-  const response = await fetch(url, {
+  return requestJson(url, {
     method: "GET",
     headers: getAuthHeaders(),
-  });
-
-  const result = await response.json();
-
-  if (!response.ok) {
-    throw new Error(result.message || "Failed to load direct messages");
-  }
-
-  return result;
+  }, withAuthHandling);
 };
 
 export const sendDirectMessage = async (userId, text) => {
-  const response = await fetch(`${API_ENDPOINTS.chat}/direct/${userId}`, {
+  return requestJson(`${API_ENDPOINTS.chat}/direct/${userId}`, {
     method: "POST",
     headers: getAuthHeaders(),
     body: JSON.stringify({ text }),
-  });
-
-  const result = await response.json();
-
-  if (!response.ok) {
-    throw new Error(result.message || "Failed to send direct message");
-  }
-
-  return result;
+  }, withAuthHandling);
 };
 
 export const getChatConversations = async () => {
-  const response = await fetch(`${API_ENDPOINTS.chat}/conversations`, {
+  return requestJson(`${API_ENDPOINTS.chat}/conversations`, {
     method: "GET",
     headers: getAuthHeaders(),
-  });
-
-  const result = await response.json();
-
-  if (!response.ok) {
-    throw new Error(result.message || "Failed to load chat conversations");
-  }
-
-  return result;
+  }, withAuthHandling);
 };
 
 export const getCallHistory = async (limit = 40) => {
-  const response = await fetch(`${API_ENDPOINTS.calls}/history?limit=${limit}`, {
+  return requestJson(`${API_ENDPOINTS.calls}/history?limit=${limit}`, {
     method: "GET",
     headers: getAuthHeaders(),
-  });
-
-  const result = await response.json();
-
-  if (!response.ok) {
-    throw new Error(result.message || "Failed to load call history");
-  }
-
-  return result;
+  }, withAuthHandling);
 };
 
 export const markDirectMessagesRead = async (userId) => {
-  const response = await fetch(`${API_ENDPOINTS.chat}/direct/${userId}/read`, {
+  return requestJson(`${API_ENDPOINTS.chat}/direct/${userId}/read`, {
     method: "PUT",
     headers: getAuthHeaders(),
-  });
-
-  const result = await response.json();
-
-  if (!response.ok) {
-    throw new Error(result.message || "Failed to mark messages as read");
-  }
-
-  return result;
+  }, withAuthHandling);
 };
 
 export const getLastSeen = async (userId) => {
-  const response = await fetch(`${API_ENDPOINTS.chat}/lastSeen/${userId}`, {
+  return requestJson(`${API_ENDPOINTS.chat}/lastSeen/${userId}`, {
     method: "GET",
     headers: getAuthHeaders(),
-  });
-
-  const result = await response.json();
-
-  if (!response.ok) {
-    throw new Error(result.message || "Failed to fetch last seen");
-  }
-
-  return result;
+  }, withAuthHandling);
 };
 
 export const getLeaderboard = async () => {
-  const response = await fetch(`${API_BASE_URL}/leaderboard`, {
+  return requestJson(`${API_BASE_URL}/leaderboard`, {
     method: "GET",
     headers: {
       "Content-Type": "application/json",
     },
   });
-
-  const result = await response.json();
-
-  if (!response.ok) {
-    throw new Error(result.message || "Failed to fetch leaderboard");
-  }
-
-  return result;
 };
 
 export const rateUser = async (userId, rating, comment = "") => {
-  const response = await fetch(`${API_BASE_URL}/rate/${userId}`, {
+  return requestJson(`${API_BASE_URL}/rate/${userId}`, {
     method: "POST",
     headers: getAuthHeaders(),
     body: JSON.stringify({ rating, comment }),
-  });
-
-  const result = await response.json();
-
-  if (!response.ok) {
-    throw new Error(result.message || "Failed to submit rating");
-  }
-
-  return result;
+  }, withAuthHandling);
 };
 
 export const getUserReviews = async (userId) => {
-  const response = await fetch(`${API_BASE_URL}/reviews/${userId}`, {
+  return requestJson(`${API_BASE_URL}/reviews/${userId}`, {
     method: "GET",
     headers: {
       "Content-Type": "application/json",
     },
   });
-
-  const result = await response.json();
-
-  if (!response.ok) {
-    throw new Error(result.message || "Failed to load reviews");
-  }
-
-  return result;
 };
 
 export const uploadProfileAssets = async (formData) => {
   const token = localStorage.getItem("token");
-  const response = await fetch(`${API_BASE_URL}/profile/assets`, {
+  return requestJson(`${API_BASE_URL}/profile/assets`, {
     method: "PUT",
     headers: {
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
     body: formData,
-  });
-
-  const result = await response.json();
-
-  if (!response.ok) {
-    throw new Error(result.message || "Failed to upload profile files");
-  }
-
-  return result;
+  }, withAuthHandling);
 };
 
 export const deleteProfileAvatar = async () => {
-  const response = await fetch(`${API_BASE_URL}/profile/avatar`, {
+  return requestJson(`${API_BASE_URL}/profile/avatar`, {
     method: "DELETE",
     headers: getAuthHeaders(),
-  });
-
-  const result = await response.json();
-
-  if (!response.ok) {
-    throw new Error(result.message || "Failed to remove avatar");
-  }
-
-  return result;
+  }, withAuthHandling);
 };
 
 export const changePassword = async ({ currentPassword, newPassword }) => {
-  const response = await fetch(`${API_BASE_URL}/settings/password`, {
+  return requestJson(`${API_BASE_URL}/settings/password`, {
     method: "PUT",
     headers: getAuthHeaders(),
     body: JSON.stringify({ currentPassword, newPassword }),
-  });
-
-  const result = await response.json();
-
-  if (!response.ok) {
-    throw new Error(result.message || "Failed to change password");
-  }
-
-  return result;
+  }, withAuthHandling);
 };
 
 export const changeEmail = async ({ newEmail, password }) => {
-  const response = await fetch(`${API_BASE_URL}/settings/email`, {
+  return requestJson(`${API_BASE_URL}/settings/email`, {
     method: "PUT",
     headers: getAuthHeaders(),
     body: JSON.stringify({ newEmail, password }),
-  });
-
-  const result = await response.json();
-
-  if (!response.ok) {
-    throw new Error(result.message || "Failed to change email");
-  }
-
-  return result;
+  }, withAuthHandling);
 };
 
 export const updatePrivacySettings = async ({ showOnlineStatus }) => {
-  const response = await fetch(`${API_BASE_URL}/settings/privacy`, {
+  return requestJson(`${API_BASE_URL}/settings/privacy`, {
     method: "PUT",
     headers: getAuthHeaders(),
     body: JSON.stringify({ showOnlineStatus }),
-  });
-
-  const result = await response.json();
-
-  if (!response.ok) {
-    throw new Error(result.message || "Failed to update privacy settings");
-  }
-
-  return result;
+  }, withAuthHandling);
 };
 
 export const getNotifications = async (limit = 20) => {
-  const response = await fetch(`${API_ENDPOINTS.notifications}?limit=${limit}`, {
+  return requestJson(`${API_ENDPOINTS.notifications}?limit=${limit}`, {
     method: "GET",
     headers: getAuthHeaders(),
-  });
-
-  const result = await response.json();
-
-  if (!response.ok) {
-    throw new Error(result.message || "Failed to load notifications");
-  }
-
-  return result;
+  }, withAuthHandling);
 };
 
 export const markNotificationRead = async (notificationId) => {
-  const response = await fetch(`${API_ENDPOINTS.notifications}/${notificationId}/read`, {
+  return requestJson(`${API_ENDPOINTS.notifications}/${notificationId}/read`, {
     method: "PUT",
     headers: getAuthHeaders(),
-  });
-
-  const result = await response.json();
-
-  if (!response.ok) {
-    throw new Error(result.message || "Failed to mark notification read");
-  }
-
-  return result;
+  }, withAuthHandling);
 };
 
 export const markAllNotificationsRead = async () => {
-  const response = await fetch(`${API_ENDPOINTS.notifications}/read-all`, {
+  return requestJson(`${API_ENDPOINTS.notifications}/read-all`, {
     method: "PUT",
     headers: getAuthHeaders(),
-  });
-
-  const result = await response.json();
-
-  if (!response.ok) {
-    throw new Error(result.message || "Failed to mark all notifications read");
-  }
-
-  return result;
+  }, withAuthHandling);
 };
 
 export const getHomePosts = async () => {
-  const response = await fetch(API_ENDPOINTS.posts, {
+  return requestJson(API_ENDPOINTS.posts, {
     method: "GET",
     headers: {
       "Content-Type": "application/json",
     },
   });
-
-  const result = await response.json();
-
-  if (!response.ok) {
-    throw new Error(result.message || "Failed to load posts");
-  }
-
-  return result;
 };
 
 export const createHomePost = async ({ title, description }) => {
-  const response = await fetch(API_ENDPOINTS.posts, {
+  return requestJson(API_ENDPOINTS.posts, {
     method: "POST",
     headers: getAuthHeaders(),
     body: JSON.stringify({ title, description }),
-  });
-
-  const result = await response.json();
-
-  if (!response.ok) {
-    throw new Error(result.message || "Failed to create post");
-  }
-
-  return result;
+  }, withAuthHandling);
 };
 
 export const submitFeedback = async ({ category, message }) => {
-  const response = await fetch(API_ENDPOINTS.feedback, {
+  return requestJson(API_ENDPOINTS.feedback, {
     method: "POST",
     headers: getAuthHeaders(),
     body: JSON.stringify({ category, message }),
-  });
-
-  const result = await response.json();
-
-  if (!response.ok) {
-    throw new Error(result.message || "Failed to submit feedback");
-  }
-
-  return result;
+  }, withAuthHandling);
 };

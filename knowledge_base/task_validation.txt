@@ -1,0 +1,6 @@
+Task Validation and Meetings
+Validation SLA: Mentors should provide feedback within 48 hours after a task is submitted.
+Status Update: Once a task is completed, it must be moved to the "In Review" status on the project board.
+Meeting Notice: For non-urgent meetings, a minimum notice period of 24 hours should be provided.
+Weekly Reports: Interns must submit a weekly report summarizing progress, challenges, and next steps.
+

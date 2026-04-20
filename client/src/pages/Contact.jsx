@@ -3,6 +3,26 @@ import PageLayout from "../components/PageLayout";
 import { SUPPORT_EMAIL } from "../config/siteMeta";
 import { sendMessage, submitFeedback } from "../services/userService";
 
+const FEEDBACK_MIN_LENGTH = 8;
+
+const buildFeedbackErrorMessage = (rawMessage) => {
+  const normalized = String(rawMessage || "").toLowerCase();
+
+  if (
+    normalized.includes("not authorized") ||
+    normalized.includes("session expired") ||
+    normalized.includes("invalid token")
+  ) {
+    return "Your session has expired. Please login again and submit your feedback.";
+  }
+
+  if (normalized.includes("failed to fetch") || normalized.includes("networkerror")) {
+    return "Unable to reach the server right now. Please try again in a moment.";
+  }
+
+  return rawMessage || "Unable to submit feedback right now. Please try again.";
+};
+
 const Contact = () => {
   const isAuthenticated = Boolean(localStorage.getItem("token"));
   const [formData, setFormData] = useState({
@@ -48,8 +68,21 @@ const Contact = () => {
 
   const handleProductFeedbackSubmit = async (e) => {
     e.preventDefault();
+    const trimmedFeedbackMessage = feedbackForm.message.trim();
+
     if (!isAuthenticated) {
-      setProductFeedback({ type: "error", message: "Please login first to submit platform feedback." });
+      setProductFeedback({
+        type: "error",
+        message: "Please login first to submit product feedback.",
+      });
+      return;
+    }
+
+    if (trimmedFeedbackMessage.length < FEEDBACK_MIN_LENGTH) {
+      setProductFeedback({
+        type: "error",
+        message: `Please write at least ${FEEDBACK_MIN_LENGTH} characters before submitting.`,
+      });
       return;
     }
 
@@ -59,12 +92,17 @@ const Contact = () => {
     try {
       const result = await submitFeedback({
         category: feedbackForm.category,
-        message: feedbackForm.message,
+        message: trimmedFeedbackMessage,
       });
-      setProductFeedback({ type: "success", message: result.message || "Feedback submitted successfully." });
+
+      const referenceText = result.feedbackId ? ` Reference ID: ${result.feedbackId}.` : "";
+      setProductFeedback({
+        type: "success",
+        message: `Thanks for your feedback. Our team will review it soon.${referenceText}`,
+      });
       setFeedbackForm({ category: "general", message: "" });
     } catch (error) {
-      setProductFeedback({ type: "error", message: error.message });
+      setProductFeedback({ type: "error", message: buildFeedbackErrorMessage(error.message) });
     } finally {
       setFeedbackLoading(false);
     }
@@ -198,6 +236,8 @@ const Contact = () => {
 
             {productFeedback ? (
               <div
+                role="status"
+                aria-live="polite"
                 className={`mt-4 rounded-xl px-3 py-2 text-sm font-medium ${
                   productFeedback.type === "success"
                     ? "bg-emerald-50 text-emerald-700"
@@ -243,11 +283,15 @@ const Contact = () => {
                   }
                   required
                 />
+                <p className="mt-1 text-xs text-slate-500">
+                  Minimum {FEEDBACK_MIN_LENGTH} characters.
+                  {` ${feedbackForm.message.trim().length}/${FEEDBACK_MIN_LENGTH} completed.`}
+                </p>
               </div>
 
               <button
                 type="submit"
-                disabled={feedbackLoading || feedbackForm.message.trim().length < 8}
+                disabled={feedbackLoading || feedbackForm.message.trim().length < FEEDBACK_MIN_LENGTH}
                 className="ui-btn-secondary w-full"
               >
                 {feedbackLoading ? "Submitting..." : "Submit Product Feedback"}

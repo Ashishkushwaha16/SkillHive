@@ -29,6 +29,33 @@ const Notifications = () => {
     load();
   }, []);
 
+  useEffect(() => {
+    const handleNewNotification = (event) => {
+      const incoming = event?.detail;
+      if (!incoming?._id) {
+        return;
+      }
+
+      setNotifications((prev) => {
+        const exists = prev.some((item) => item._id === incoming._id);
+        if (exists) {
+          return prev;
+        }
+
+        return [incoming, ...prev].slice(0, 60);
+      });
+      setUnreadCount((prev) => prev + 1);
+    };
+
+    window.addEventListener("notification:new", handleNewNotification);
+    window.addEventListener("focus", load);
+
+    return () => {
+      window.removeEventListener("notification:new", handleNewNotification);
+      window.removeEventListener("focus", load);
+    };
+  }, []);
+
   const handleRead = async (id) => {
     try {
       await markNotificationRead(id);

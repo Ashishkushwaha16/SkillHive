@@ -32,6 +32,19 @@ const submitFeedback = async (req, res) => {
   }
 };
 
+const getFeedbackEntries = async (req, res) => {
+  try {
+    const feedbackEntries = await Feedback.find({})
+      .sort({ createdAt: -1 })
+      .populate("user", "name email");
+
+    return res.status(200).json(feedbackEntries);
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+};
+
 module.exports = {
   submitFeedback,
+  getFeedbackEntries,
 };

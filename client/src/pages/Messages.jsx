@@ -7,7 +7,9 @@ import {
   getChatConversations,
   getDirectMessages,
   getLastSeen,
+  getProfile,
   markDirectMessagesRead,
+  rateUser,
   sendDirectMessage,
 } from "../services/userService";
 
@@ -28,6 +30,20 @@ const Messages = () => {
   const [incomingCall, setIncomingCall] = useState(null);
   const [activeCall, setActiveCall] = useState(null);
   const [callHistory, setCallHistory] = useState([]);
+  const [currentUser, setCurrentUser] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem("user") || "null");
+    } catch (error) {
+      return null;
+    }
+  });
+  const [mentorFeedback, setMentorFeedback] = useState({
+    rating: "",
+    comment: "",
+    open: false,
+    submitting: false,
+    result: null,
+  });
   const [callModal, setCallModal] = useState({
     isOpen: false,
     mode: "video",
@@ -44,11 +60,25 @@ const Messages = () => {
 
   const isActivePeerOnline = onlineUserIds.includes(activePeerId);
 
+  const resolveAvatarUrl = (peer) => {
+    if (!peer) {
+      return "";
+    }
+
+    if (typeof peer.avatar === "string") {
+      return peer.avatar;
+    }
+
+    return peer.avatar?.url || "";
+  };
+
   const renderAvatar = (peer) => {
-    if (peer?.avatar?.url) {
+    const avatarUrl = resolveAvatarUrl(peer);
+
+    if (avatarUrl) {
       return (
         <img
-          src={peer.avatar.url}
+          src={avatarUrl}
           alt={peer.name}
           className="h-10 w-10 rounded-xl object-cover"
         />
@@ -100,6 +130,25 @@ const Messages = () => {
     if (diffDays < 7) return `${diffDays}d ago`;
     return date.toLocaleDateString();
   };
+
+  useEffect(() => {
+    getProfile()
+      .then((profile) => {
+        setCurrentUser(profile);
+        localStorage.setItem("user", JSON.stringify(profile));
+      })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    setMentorFeedback({
+      rating: "",
+      comment: "",
+      open: false,
+      submitting: false,
+      result: null,
+    });
+  }, [activePeerId]);
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -223,6 +272,13 @@ const Messages = () => {
         type: "ended",
         text: label,
       });
+      if (status === "ended" || status === "accepted" || status === "rejected" || status === "missed") {
+        setMentorFeedback((prev) => ({
+          ...prev,
+          open: true,
+          result: null,
+        }));
+      }
       setIncomingCall(null);
       setActiveCall(null);
       setCallModal({
@@ -478,6 +534,44 @@ const Messages = () => {
     );
   };
 
+  const submitMentorFeedback = async (event) => {
+    event.preventDefault();
+    if (!activePeerId) {
+      return;
+    }
+
+    const rating = Number(mentorFeedback.rating);
+    if (!rating || rating < 1 || rating > 5) {
+      setMentorFeedback((prev) => ({
+        ...prev,
+        result: { type: "error", text: "Please select a rating between 1 and 5." },
+      }));
+      return;
+    }
+
+    try {
+      setMentorFeedback((prev) => ({ ...prev, submitting: true, result: null }));
+      const result = await rateUser(activePeerId, rating, mentorFeedback.comment.trim());
+      setMentorFeedback((prev) => ({
+        ...prev,
+        submitting: false,
+        open: false,
+        rating: "",
+        comment: "",
+        result: {
+          type: "success",
+          text: `Thanks. Mentor rating updated to ${result.newRating?.toFixed?.(1) || result.newRating}.`,
+        },
+      }));
+    } catch (error) {
+      setMentorFeedback((prev) => ({
+        ...prev,
+        submitting: false,
+        result: { type: "error", text: error.message },
+      }));
+    }
+  };
+
   return (
     <PageLayout
       title="Messages"
@@ -607,10 +701,10 @@ const Messages = () => {
                   <div className="space-y-3">
                     {messages.map((item) => {
                       const senderId = item?.sender?._id?.toString?.() || item?.sender?.toString?.();
-                      const myId = JSON.parse(localStorage.getItem("user") || "{}")._id;
+                      const myId = currentUser?._id || JSON.parse(localStorage.getItem("user") || "{}")._id;
                       const isMine = senderId === myId;
                       const isRead = !!item.readAt;
-                      const senderMeta = isMine ? JSON.parse(localStorage.getItem("user") || "{}") : activePeer;
+                      const senderMeta = isMine ? currentUser || JSON.parse(localStorage.getItem("user") || "{}") : activePeer;
 
                       return (
                         <div key={item._id} className={`flex ${isMine ? "justify-end" : "justify-start"}`}>
@@ -662,6 +756,63 @@ const Messages = () => {
                   {sending ? "Sending..." : "Send"}
                 </button>
               </form>
+
+              {activePeer ? (
+                <section className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <h4 className="text-sm font-semibold uppercase tracking-[0.14em] text-slate-700">Mentor Feedback</h4>
+                    <button
+                      type="button"
+                      className="rounded-lg border border-slate-300 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-100"
+                      onClick={() => setMentorFeedback((prev) => ({ ...prev, open: !prev.open, result: null }))}
+                    >
+                      {mentorFeedback.open ? "Hide" : "Rate Mentor"}
+                    </button>
+                  </div>
+
+                  {mentorFeedback.result ? (
+                    <p
+                      className={`mt-2 text-sm ${
+                        mentorFeedback.result.type === "success" ? "text-emerald-700" : "text-rose-700"
+                      }`}
+                    >
+                      {mentorFeedback.result.text}
+                    </p>
+                  ) : null}
+
+                  {mentorFeedback.open ? (
+                    <form onSubmit={submitMentorFeedback} className="mt-3 space-y-2">
+                      <select
+                        className="ui-input"
+                        value={mentorFeedback.rating}
+                        onChange={(event) =>
+                          setMentorFeedback((prev) => ({ ...prev, rating: event.target.value }))
+                        }
+                        required
+                      >
+                        <option value="">Select rating</option>
+                        <option value="1">1 - Poor</option>
+                        <option value="2">2 - Fair</option>
+                        <option value="3">3 - Good</option>
+                        <option value="4">4 - Very Good</option>
+                        <option value="5">5 - Excellent</option>
+                      </select>
+                      <textarea
+                        rows="3"
+                        className="ui-input resize-none"
+                        placeholder="How was your conversation with this mentor?"
+                        value={mentorFeedback.comment}
+                        onChange={(event) =>
+                          setMentorFeedback((prev) => ({ ...prev, comment: event.target.value }))
+                        }
+                      />
+                      <button type="submit" className="ui-btn-secondary" disabled={mentorFeedback.submitting}>
+                        {mentorFeedback.submitting ? "Submitting..." : "Submit Mentor Feedback"}
+                      </button>
+                    </form>
+                  ) : null}
+                </section>
+              ) : null}
             </>
           ) : (
             <p className="text-sm text-slate-600">Select a connection to start chatting.</p>

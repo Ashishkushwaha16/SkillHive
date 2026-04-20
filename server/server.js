@@ -17,6 +17,7 @@ const callRoutes = require("./routes/callRoutes");
 const { apiLimiter } = require("./middleware/rateLimiter");
 const { notFound, errorHandler } = require("./middleware/errorMiddleware");
 const { initChatSocket } = require("./socket/chatSocket");
+const Review = require("./models/Review");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -65,6 +66,11 @@ const startServer = async () => {
   }
 
   await connectDB();
+  try {
+    await Review.syncIndexes();
+  } catch (indexError) {
+    console.warn("Review index sync skipped:", indexError.message);
+  }
   const server = http.createServer(app);
   const io = initChatSocket(server, process.env.CLIENT_ORIGIN || "*");
   app.set("io", io);

@@ -159,6 +159,8 @@ const Profile = () => {
       setSavingAssets(true);
       const updated = await uploadProfileAssets(formData);
       setUser(updated);
+      localStorage.setItem("user", JSON.stringify(updated));
+      window.dispatchEvent(new Event("authChange"));
       setAssetFiles({ avatar: null, resume: null, certificates: [] });
       showMessage("success", "Files uploaded successfully");
     } catch (error) {
@@ -178,6 +180,8 @@ const Profile = () => {
       setSavingAssets(true);
       const updated = await deleteProfileAvatar();
       setUser(updated);
+      localStorage.setItem("user", JSON.stringify(updated));
+      window.dispatchEvent(new Event("authChange"));
       showMessage("success", "Avatar removed successfully");
     } catch (error) {
       showMessage("error", error.message);
@@ -214,16 +218,18 @@ const Profile = () => {
             <div>
               <h2 className="text-2xl font-extrabold text-slate-950">{user?.name}</h2>
               <p className="text-sm text-slate-600">{user?.email}</p>
-              <div className="mt-2 flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={handleDeleteAvatar}
-                  className="rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-700 hover:bg-rose-100"
-                  disabled={savingAssets || !user?.avatar?.url}
-                >
-                  Delete Photo
-                </button>
-              </div>
+              {user?.avatar?.url ? (
+                <div className="mt-2 flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleDeleteAvatar}
+                    className="rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-700 hover:bg-rose-100"
+                    disabled={savingAssets}
+                  >
+                    Delete Photo
+                  </button>
+                </div>
+              ) : null}
             </div>
           </div>
 
@@ -263,6 +269,27 @@ const Profile = () => {
               </ul>
             ) : (
               <p className="mt-2 text-sm text-slate-500">No achievements added</p>
+            )}
+          </div>
+
+          <div className="mt-5 rounded-2xl border border-slate-200 bg-white p-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Certificates</p>
+            {(user?.certificates || []).length ? (
+              <div className="mt-2 space-y-2">
+                {user.certificates.map((cert) => (
+                  <a
+                    key={cert.publicId}
+                    href={cert.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="block rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold text-blue-700"
+                  >
+                    {cert.name || "Certificate"}
+                  </a>
+                ))}
+              </div>
+            ) : (
+              <p className="mt-2 text-sm text-slate-500">No certificates uploaded</p>
             )}
           </div>
         </section>
@@ -373,16 +400,6 @@ const Profile = () => {
                 {savingAssets ? "Uploading..." : "Upload Files"}
               </button>
             </form>
-
-            {(user?.certificates || []).length ? (
-              <div className="mt-4 space-y-2">
-                {user.certificates.map((cert) => (
-                  <a key={cert.publicId} href={cert.url} target="_blank" rel="noreferrer" className="block text-sm font-semibold text-blue-700">
-                    {cert.name || "Certificate"}
-                  </a>
-                ))}
-              </div>
-            ) : null}
           </section>
 
           {message.text ? (

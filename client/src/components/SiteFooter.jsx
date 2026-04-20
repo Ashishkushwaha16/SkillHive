@@ -46,9 +46,9 @@ const SiteFooter = () => {
         <div className="mt-8 sm:mt-10 flex flex-col sm:flex-row flex-wrap items-center justify-between gap-2 sm:gap-3 border-t border-white/10 pt-4 sm:pt-6 text-xs sm:text-sm text-slate-500">
           <p>© {new Date().getFullYear()} SkillHive. All rights reserved.</p>
           <div className="flex items-center gap-4">
-            <span className="hover:text-slate-300 cursor-pointer">Privacy</span>
-            <span className="hover:text-slate-300 cursor-pointer">Terms</span>
-            <span className="hover:text-slate-300 cursor-pointer">Support</span>
+            <Link to="/privacy" className="hover:text-slate-300">Privacy</Link>
+            <Link to="/terms" className="hover:text-slate-300">Terms</Link>
+            <Link to="/help" className="hover:text-slate-300">Support</Link>
           </div>
         </div>
       </div>

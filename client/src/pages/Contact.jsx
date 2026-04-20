@@ -1,18 +1,24 @@
 import { useState } from "react";
 import PageLayout from "../components/PageLayout";
-import { sendMessage } from "../services/userService";
-
-const SUPPORT_EMAIL = process.env.REACT_APP_SUPPORT_EMAIL || "hello@skillhive.app";
+import { SUPPORT_EMAIL } from "../config/siteMeta";
+import { sendMessage, submitFeedback } from "../services/userService";
 
 const Contact = () => {
+  const isAuthenticated = Boolean(localStorage.getItem("token"));
   const [formData, setFormData] = useState({
     name: "",
     email: "",
     subject: "",
     message: "",
   });
+  const [feedbackForm, setFeedbackForm] = useState({
+    category: "general",
+    message: "",
+  });
   const [loading, setLoading] = useState(false);
+  const [feedbackLoading, setFeedbackLoading] = useState(false);
   const [feedback, setFeedback] = useState(null);
+  const [productFeedback, setProductFeedback] = useState(null);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -37,6 +43,30 @@ const Contact = () => {
       setFeedback({ type: "error", message: error.message });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleProductFeedbackSubmit = async (e) => {
+    e.preventDefault();
+    if (!isAuthenticated) {
+      setProductFeedback({ type: "error", message: "Please login first to submit platform feedback." });
+      return;
+    }
+
+    setFeedbackLoading(true);
+    setProductFeedback(null);
+
+    try {
+      const result = await submitFeedback({
+        category: feedbackForm.category,
+        message: feedbackForm.message,
+      });
+      setProductFeedback({ type: "success", message: result.message || "Feedback submitted successfully." });
+      setFeedbackForm({ category: "general", message: "" });
+    } catch (error) {
+      setProductFeedback({ type: "error", message: error.message });
+    } finally {
+      setFeedbackLoading(false);
     }
   };
 
@@ -157,6 +187,72 @@ const Contact = () => {
                 <p className="mt-1 text-slate-600">Bug reports, feature requests, and account help.</p>
               </div>
             </div>
+          </div>
+
+          <div className="ui-card p-6">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-700">Product Feedback</p>
+            <h3 className="mt-2 text-xl font-extrabold text-slate-950">Share your app experience</h3>
+            <p className="mt-2 text-sm text-slate-600">
+              This section has moved here from the separate feedback page.
+            </p>
+
+            {productFeedback ? (
+              <div
+                className={`mt-4 rounded-xl px-3 py-2 text-sm font-medium ${
+                  productFeedback.type === "success"
+                    ? "bg-emerald-50 text-emerald-700"
+                    : "bg-rose-50 text-rose-700"
+                }`}
+              >
+                {productFeedback.message}
+              </div>
+            ) : null}
+
+            <form onSubmit={handleProductFeedbackSubmit} className="mt-4 space-y-3">
+              <div>
+                <label htmlFor="feedback-category" className="mb-1 block text-sm font-semibold text-slate-700">
+                  Category
+                </label>
+                <select
+                  id="feedback-category"
+                  className="ui-input"
+                  value={feedbackForm.category}
+                  onChange={(event) =>
+                    setFeedbackForm((prev) => ({ ...prev, category: event.target.value }))
+                  }
+                >
+                  <option value="general">General</option>
+                  <option value="bug">Bug Report</option>
+                  <option value="feature">Feature Request</option>
+                  <option value="ui">UI / UX</option>
+                </select>
+              </div>
+
+              <div>
+                <label htmlFor="feedback-message" className="mb-1 block text-sm font-semibold text-slate-700">
+                  Feedback
+                </label>
+                <textarea
+                  id="feedback-message"
+                  rows="4"
+                  className="ui-input resize-none"
+                  placeholder="Tell us what we should improve"
+                  value={feedbackForm.message}
+                  onChange={(event) =>
+                    setFeedbackForm((prev) => ({ ...prev, message: event.target.value }))
+                  }
+                  required
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={feedbackLoading || feedbackForm.message.trim().length < 8}
+                className="ui-btn-secondary w-full"
+              >
+                {feedbackLoading ? "Submitting..." : "Submit Product Feedback"}
+              </button>
+            </form>
           </div>
         </aside>
       </div>

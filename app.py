@@ -10,6 +10,11 @@ from functools import lru_cache
 from pathlib import Path
 from datetime import datetime
 
+try:
+    from dotenv import load_dotenv
+except ImportError:  # pragma: no cover - optional local env dependency
+    load_dotenv = None
+
 import faiss
 import numpy as np
 from sentence_transformers import SentenceTransformer
@@ -28,6 +33,11 @@ try:
     from anthropic import Anthropic
 except ImportError:  # pragma: no cover - optional provider dependency
     Anthropic = None
+
+# Load env files automatically when available to reduce setup friction.
+if load_dotenv is not None:
+    load_dotenv(dotenv_path=Path(".env"), override=False)
+    load_dotenv(dotenv_path=Path("server/.env"), override=False)
 
 # ============================================================
 # CONFIGURATION — Provider-agnostic assistant settings
@@ -91,7 +101,7 @@ PROVIDER_CONFIG = {
     "claude": {
         "display_name": "Claude",
         "client_type": "anthropic",
-        "api_keys": ("CLAUDE_APIKEY", "CLAUDE_API_KEY"),
+        "api_keys": ("CLAUDE_API_KEY", "CLAUDE_APIKEY"),
         "model_env": "CLAUDE_MODEL",
         "default_model": "claude-3-5-sonnet-20241022",
         "base_url": None,

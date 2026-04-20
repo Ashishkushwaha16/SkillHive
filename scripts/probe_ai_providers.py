@@ -17,7 +17,7 @@ from dotenv import load_dotenv
 load_dotenv(dotenv_path=Path(".env"), override=False)
 load_dotenv(dotenv_path=Path("server/.env"), override=False)
 
-SUPPORTED_PROVIDERS = ("chatgpt", "gemini", "grok", "perplexity", "claude")
+SUPPORTED_PROVIDERS = ("chatgpt", "gemini")
 
 PROVIDER_CONFIG = {
     "chatgpt": {
@@ -32,27 +32,6 @@ PROVIDER_CONFIG = {
         "api_keys": ("GEMINI_API_KEY",),
         "model_env": "GEMINI_MODEL",
         "default_model": "gemini-1.5-flash",
-        "base_url": None,
-    },
-    "grok": {
-        "client_type": "openai",
-        "api_keys": ("XAI_API_KEY", "GROK_API_KEY"),
-        "model_env": "GROK_MODEL",
-        "default_model": "grok-2-latest",
-        "base_url": "https://api.x.ai/v1",
-    },
-    "perplexity": {
-        "client_type": "openai",
-        "api_keys": ("PERPLEXITY_API_KEY",),
-        "model_env": "PERPLEXITY_MODEL",
-        "default_model": "sonar",
-        "base_url": "https://api.perplexity.ai",
-    },
-    "claude": {
-        "client_type": "anthropic",
-        "api_keys": ("CLAUDE_API_KEY", "CLAUDE_APIKEY"),
-        "model_env": "CLAUDE_MODEL",
-        "default_model": "claude-3-5-sonnet-20241022",
         "base_url": None,
     },
 }
@@ -100,17 +79,6 @@ def probe_provider(provider: str) -> tuple[str, str, str]:
             genai.configure(api_key=api_key)
             gemini_model = genai.GenerativeModel(model_name=model)
             gemini_model.generate_content("Reply OK")
-            return provider, "PASS", "Live call succeeded"
-
-        if config["client_type"] == "anthropic":
-            from anthropic import Anthropic
-
-            client = Anthropic(api_key=api_key)
-            client.messages.create(
-                model=model,
-                max_tokens=5,
-                messages=[{"role": "user", "content": "Reply OK"}],
-            )
             return provider, "PASS", "Live call succeeded"
 
         return provider, "FAIL", f"Unsupported client type: {config['client_type']}"

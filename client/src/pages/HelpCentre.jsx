@@ -13,6 +13,10 @@ const HelpCentre = () => {
           SkillHive support covers login and account recovery, profile media issues, mentor matching,
           message delivery, notifications, and call troubleshooting.
         </p>
+        <p className="mt-2 text-sm leading-7 text-slate-700">
+          The support chatbot includes two sections: <span className="font-semibold">AI Assistant</span> for conversational guidance
+          and <span className="font-semibold">AI Search Engine</span> for direct knowledge-base answers about the app.
+        </p>
         <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
           Preferred support channel: <span className="font-semibold">{SUPPORT_EMAIL}</span>
         </div>

@@ -6,17 +6,10 @@ This guide is aligned with the current SkillHive implementation.
 
 - RAG retrieval with SentenceTransformers + FAISS
 - Flask assistant API in [server.py](server.py)
-- Multi-provider routing in [app.py](app.py)
+- Dual-provider routing in [app.py](app.py)
 - Provider priority:
   1. ChatGPT
   2. Gemini
-  3. Grok
-  4. Perplexity
-  5. Claude
-- Additional UI profiles mapped to ChatGPT route:
-  - ChatGPT Codex
-  - GitHub Copilot
-  - Microsoft Copilot
 
 ## Ports
 
@@ -45,9 +38,6 @@ Minimum AI keys (based on selected provider):
 
 - `OPENAI_API_KEY` for `AI_PROVIDER=chatgpt`
 - `GEMINI_API_KEY` for `AI_PROVIDER=gemini`
-- `XAI_API_KEY` for `AI_PROVIDER=grok`
-- `PERPLEXITY_API_KEY` for `AI_PROVIDER=perplexity`
-- `CLAUDE_APIKEY` for `AI_PROVIDER=claude`
 
 ## 2) Install Dependencies
 
@@ -106,7 +96,7 @@ Invoke-WebRequest -Uri "http://localhost:5050/chat" -Method POST -Headers @{ "Co
 
 - Ensure `python server.py` is running
 - Ensure `REACT_APP_AI_ASSISTANT_URL=http://localhost:5050`
-- Verify selected provider key exists in `.env`
+- Verify `AI_PROVIDER` is set to `chatgpt` or `gemini`, and the matching key exists in `.env`
 
 ### No answer from KB
 

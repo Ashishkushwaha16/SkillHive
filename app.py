@@ -1,6 +1,6 @@
 """
-SkillHive AI Assistant - RAG-based Multilingual Chatbot
-Uses: SentenceTransformers + FAISS + ChatGPT / Gemini / Grok / Perplexity / Claude APIs
+SkillHive AI Assistant - RAG-based Chatbot
+Uses: SentenceTransformers + FAISS + ChatGPT / Gemini APIs
 """
 
 import os
@@ -29,11 +29,6 @@ try:
 except ImportError:  # pragma: no cover - optional provider dependency
     genai = None
 
-try:
-    from anthropic import Anthropic
-except ImportError:  # pragma: no cover - optional provider dependency
-    Anthropic = None
-
 # Load env files automatically when available to reduce setup friction.
 if load_dotenv is not None:
     load_dotenv(dotenv_path=Path(".env"), override=False)
@@ -43,26 +38,17 @@ if load_dotenv is not None:
 # CONFIGURATION — Provider-agnostic assistant settings
 # ============================================================
 DEFAULT_PROVIDER = os.getenv("AI_PROVIDER", "chatgpt").strip().lower()
-SUPPORTED_PROVIDERS = ("chatgpt", "gemini", "grok", "perplexity", "claude")
+SUPPORTED_PROVIDERS = ("chatgpt", "gemini", "ai-search")
 PROVIDER_ALIASES = {
-    "xai": "grok",
-    "grok": "grok",
-    "grok-ai": "grok",
     "openai": "chatgpt",
     "gpt": "chatgpt",
     "chatgpt": "chatgpt",
-    "chatgpt-codex": "chatgpt",
-    "codex": "chatgpt",
-    "github-copilot": "chatgpt",
-    "copilot": "chatgpt",
-    "microsoft-copilot": "chatgpt",
-    "ms-copilot": "chatgpt",
     "gemini": "gemini",
     "google": "gemini",
-    "perplexity": "perplexity",
-    "pplx": "perplexity",
-    "claude": "claude",
-    "anthropic": "claude",
+    "ai-search": "ai-search",
+    "aisearch": "ai-search",
+    "search": "ai-search",
+    "local-search": "ai-search",
 }
 
 PROVIDER_CONFIG = {
@@ -82,28 +68,12 @@ PROVIDER_CONFIG = {
         "default_model": "gemini-1.5-flash",
         "base_url": None,
     },
-    "grok": {
-        "display_name": "Grok",
-        "client_type": "openai",
-        "api_keys": ("XAI_API_KEY", "GROK_API_KEY"),
-        "model_env": "GROK_MODEL",
-        "default_model": "grok-2-latest",
-        "base_url": "https://api.x.ai/v1",
-    },
-    "perplexity": {
-        "display_name": "Perplexity",
-        "client_type": "openai",
-        "api_keys": ("PERPLEXITY_API_KEY",),
-        "model_env": "PERPLEXITY_MODEL",
-        "default_model": "sonar",
-        "base_url": "https://api.perplexity.ai",
-    },
-    "claude": {
-        "display_name": "Claude",
-        "client_type": "anthropic",
-        "api_keys": ("CLAUDE_API_KEY", "CLAUDE_APIKEY"),
-        "model_env": "CLAUDE_MODEL",
-        "default_model": "claude-3-5-sonnet-20241022",
+    "ai-search": {
+        "display_name": "AI Search Engine",
+        "client_type": "local-search",
+        "api_keys": (),
+        "model_env": None,
+        "default_model": "knowledge-base-search-v1",
         "base_url": None,
     },
 }
@@ -111,6 +81,8 @@ PROVIDER_CONFIG = {
 KNOWLEDGE_BASE_DIR = "knowledge_base"      # Folder with your .txt files
 ADMIN_LOG_FILE = "admin_flagged_queries.json"
 EMBED_MODEL = "all-MiniLM-L6-v2"
+RETRIEVAL_SCORE_THRESHOLD = float(os.getenv("AI_RETRIEVAL_SCORE_THRESHOLD", "0.2"))
+RETRIEVAL_MIN_FALLBACK_SCORE = float(os.getenv("AI_RETRIEVAL_MIN_FALLBACK_SCORE", "0.08"))
 
 
 def normalize_provider(provider: str | None) -> str:
@@ -129,7 +101,19 @@ def get_provider_display_name(provider: str) -> str:
 def get_provider_model(provider: str) -> str:
     provider_key = normalize_provider(provider)
     provider_config = PROVIDER_CONFIG[provider_key]
-    return os.getenv(provider_config["model_env"], provider_config["default_model"])
+    model_env = provider_config.get("model_env")
+    if not model_env:
+        return provider_config["default_model"]
+    return os.getenv(model_env, provider_config["default_model"])
+
+
+def _is_placeholder_secret(value: str) -> bool:
+    lower = value.lower()
+    return (
+        lower.startswith("your_")
+        or "replace_with" in lower
+        or lower in {"changeme", "api_key_here", "your_api_key", "your_key"}
+    )
 
 
 def get_provider_api_key(provider: str) -> str:
@@ -137,7 +121,7 @@ def get_provider_api_key(provider: str) -> str:
     provider_config = PROVIDER_CONFIG[provider_key]
     for env_name in provider_config["api_keys"]:
         value = os.getenv(env_name, "").strip()
-        if value:
+        if value and not _is_placeholder_secret(value):
             return value
     return ""
 
@@ -146,6 +130,10 @@ def get_provider_api_key(provider: str) -> str:
 def build_llm_runtime(provider: str) -> dict:
     provider_key = normalize_provider(provider)
     provider_config = PROVIDER_CONFIG[provider_key]
+
+    if provider_config["client_type"] == "local-search":
+        return {"provider": provider_key, "client": None, "model": provider_config["default_model"]}
+
     api_key = get_provider_api_key(provider_key)
     if not api_key:
         raise ValueError(
@@ -167,16 +155,10 @@ def build_llm_runtime(provider: str) -> dict:
         client = genai.GenerativeModel(model_name=model_name)
         return {"provider": provider_key, "client": client, "model": model_name}
 
-    if provider_config["client_type"] == "anthropic":
-        if Anthropic is None:
-            raise ImportError("anthropic package is not installed. Run pip install -r requirements.txt")
-        client = Anthropic(api_key=api_key)
-        return {"provider": provider_key, "client": client, "model": model_name}
-
     raise ValueError(f"Unsupported provider: {provider_key}")
 
 # ============================================================
-# MULTILINGUAL MESSAGES
+# USER-FACING MESSAGES
 # ============================================================
 MESSAGES = {
     "en": {
@@ -186,9 +168,9 @@ MESSAGES = {
         "menu_header": "--- SkillHive Navigation Menu ---",
     },
     "hi": {
-        "welcome": "--- SkillHive AI Assistant तैयार है ---\nनमस्ते! मैं आपका SkillHive Assistant हूँ। आज मैं आपकी कैसे मदद कर सकता हूँ?\nSections देखने के लिए 'menu' टाइप करें, या बाहर निकलने के लिए 'quit'।",
-        "no_answer": "मुझे खेद है, आपकी query के लिए relevant जानकारी नहीं मिली। इसे Admin Portal के लिए flag कर दिया गया है।",
-        "goodbye": "अलविदा! आपका दिन शुभ हो। अपना ख्याल रखें!",
+        "welcome": "--- SkillHive AI Assistant Ready ---\nHello! I am your SkillHive Assistant. How can I help you today?\nType 'menu' to see sections, or 'quit' to exit.",
+        "no_answer": "I'm sorry, I couldn't find relevant information for your query. It has been flagged for the Admin Portal.",
+        "goodbye": "Goodbye! Have a great day. Take care!",
         "menu_header": "--- SkillHive Navigation Menu ---",
     }
 }
@@ -275,21 +257,183 @@ def retrieve_context(query: str, index, chunks: list[dict], model: SentenceTrans
     best_score = float(scores[0][0])
     context_parts = []
     for idx, score in zip(indices[0], scores[0]):
-        if score > 0.2:  # Relevance threshold
+        if score >= RETRIEVAL_SCORE_THRESHOLD:
             src = chunks[idx]["source"]
             content = chunks[idx]["content"]
             context_parts.append(f"[Source: {src}]\n{content}")
 
+    # If nothing crossed threshold but the top match is still somewhat related,
+    # use it as a soft fallback instead of immediately flagging as unresolved.
+    if not context_parts and len(indices[0]) > 0 and best_score >= RETRIEVAL_MIN_FALLBACK_SCORE:
+        top_idx = int(indices[0][0])
+        src = chunks[top_idx]["source"]
+        content = chunks[top_idx]["content"]
+        context_parts.append(f"[Source: {src}]\n{content}")
+
     return "\n\n---\n\n".join(context_parts), best_score
+
+
+def generate_ai_search_response(query: str, context: str, language: str) -> str:
+    """Build a retrieval-only answer that does not require external provider APIs."""
+    sections = [part.strip() for part in context.split("\n\n---\n\n") if part.strip()]
+    sources: list[str] = []
+    points: list[str] = []
+
+    for section in sections[:3]:
+        lines = [line.strip() for line in section.splitlines() if line.strip()]
+        source = ""
+        if lines and lines[0].startswith("[Source:"):
+            source = lines[0].replace("[Source:", "").replace("]", "").strip()
+            lines = lines[1:]
+        text = " ".join(lines).strip()
+        if text:
+            points.append(text[:260].rstrip())
+        if source and source not in sources:
+            sources.append(source)
+
+    bullets = "\n".join([f"- {point}" for point in points]) if points else "- No matching content was found in the current knowledge base."
+    source_text = ", ".join(sources) if sources else "knowledge base"
+    return (
+        "AI Search Engine Result:\n"
+        f"Your query: '{query}'\n\n"
+        "The following information was retrieved directly from the SkillHive knowledge base:\n"
+        f"{bullets}\n\n"
+        f"Sources: {source_text}\n"
+        "If this does not fully solve your issue, please contact Help/Support for manual assistance."
+    )
+
+
+def _should_fallback_to_gemini(error: Exception) -> bool:
+    message = str(error).lower()
+    return any(
+        token in message
+        for token in (
+            "insufficient_quota",
+            "quota",
+            "429",
+            "authentication",
+            "unauthorized",
+            "401",
+            "403",
+        )
+    )
+
+
+def _is_gemini_model_not_found(error: Exception) -> bool:
+    message = str(error).lower()
+    return (
+        "not found" in message
+        and "model" in message
+        and ("api version" in message or "models/" in message)
+    )
+
+
+def _friendly_provider_error(language: str) -> str:
+    return (
+        "The AI provider is temporarily unavailable right now. "
+        "Please try again shortly, or use the AI Search Engine section for app-related help."
+    )
+
+
+def _looks_like_provider_error_text(text: str) -> bool:
+    normalized = (text or "").strip().lower()
+    if not normalized:
+        return False
+
+    return any(
+        token in normalized
+        for token in (
+            "[api error]",
+            "could not get response",
+            "insufficient_quota",
+            "quota exceeded",
+            "generativelanguage.googleapis.com",
+            "retry_delay",
+            "violations {",
+        )
+    )
+
+
+def _generate_gemini_response(query: str, context: str, language: str, model_name: str | None = None) -> str:
+    if genai is None:
+        raise ImportError("google-generativeai package is not installed. Run pip install -r requirements.txt")
+
+    gemini_key = get_provider_api_key("gemini")
+    if not gemini_key:
+        raise ValueError("Missing API key for Gemini. Set GEMINI_API_KEY.")
+    genai.configure(api_key=gemini_key)
+
+    lang_instruction = "Respond in clear, professional English."
+
+    system_prompt = f"""You are SkillHive AI Assistant for an internship platform.
+You ONLY answer questions using the provided knowledge base context.
+{lang_instruction}
+If the context does not contain relevant information, say you don't know — do NOT make up answers.
+Keep responses concise and helpful."""
+
+    user_prompt = f"""Context from Knowledge Base:
+{context}
+
+User Question: {query}
+
+Answer based strictly on the context above."""
+
+    candidate_models = []
+    for candidate in (
+        model_name,
+        get_provider_model("gemini"),
+        "gemini-1.5-flash-latest",
+        "gemini-2.0-flash",
+        "gemini-2.0-flash-lite",
+        "gemini-1.5-pro-latest",
+    ):
+        if candidate and candidate not in candidate_models:
+            candidate_models.append(candidate)
+
+    try:
+        discovered_models = []
+        for model in genai.list_models():
+            model_name_value = getattr(model, "name", "")
+            supported_methods = getattr(model, "supported_generation_methods", []) or []
+            if (
+                model_name_value
+                and "generateContent" in supported_methods
+                and "gemini" in model_name_value.lower()
+            ):
+                normalized = model_name_value.replace("models/", "")
+                discovered_models.append(normalized)
+        for discovered in discovered_models:
+            if discovered not in candidate_models:
+                candidate_models.append(discovered)
+    except Exception:
+        # If model discovery fails, continue with static fallback candidates.
+        pass
+
+    last_error: Exception | None = None
+    for candidate_model in candidate_models:
+        try:
+            gemini_model = genai.GenerativeModel(
+                model_name=candidate_model,
+                system_instruction=system_prompt,
+            )
+            response = gemini_model.generate_content(user_prompt)
+            text = getattr(response, "text", None) or ""
+            return text.strip() if text else "[API Error] Gemini returned an empty response."
+        except Exception as gemini_error:
+            last_error = gemini_error
+            if _is_gemini_model_not_found(gemini_error):
+                continue
+            raise
+
+    raise RuntimeError(f"No compatible Gemini model available. Last error: {last_error}")
 
 
 # ============================================================
 # LANGUAGE DETECTION
 # ============================================================
 def detect_language(text: str) -> str:
-    """Simple Hindi detection using Unicode range."""
-    hindi_chars = sum(1 for ch in text if "\u0900" <= ch <= "\u097F")
-    return "hi" if hindi_chars > 1 else "en"
+    """Project-wide language mode is English-only."""
+    return "en"
 
 
 # ============================================================
@@ -298,10 +442,7 @@ def detect_language(text: str) -> str:
 def generate_response(query: str, context: str, language: str, runtime: dict) -> str:
     """Send context + query to the selected LLM provider and get a response."""
 
-    lang_instruction = (
-        "Respond ONLY in Hindi (Devanagari script)." if language == "hi"
-        else "Respond in clear, professional English."
-    )
+    lang_instruction = "Respond in clear, professional English."
 
     system_prompt = f"""You are SkillHive AI Assistant for an internship platform.
 You ONLY answer questions using the provided knowledge base context.
@@ -321,44 +462,50 @@ Answer based strictly on the context above."""
         client = runtime["client"]
         model_name = runtime["model"]
 
-        if provider in {"chatgpt", "grok", "perplexity"}:
-            response = client.chat.completions.create(
-                model=model_name,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt},
-                ],
-                max_tokens=600,
-                temperature=0.3,
-            )
-            return response.choices[0].message.content.strip()
+        if provider == "chatgpt":
+            try:
+                response = client.chat.completions.create(
+                    model=model_name,
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_prompt},
+                    ],
+                    max_tokens=600,
+                    temperature=0.3,
+                )
+                answer = response.choices[0].message.content.strip()
+                if _looks_like_provider_error_text(answer):
+                    return _friendly_provider_error(language)
+                return answer
+            except Exception as chatgpt_error:
+                if _should_fallback_to_gemini(chatgpt_error):
+                    print(f"[WARN] ChatGPT unavailable, falling back to Gemini: {chatgpt_error}")
+                    try:
+                        answer = _generate_gemini_response(query, context, language)
+                        if _looks_like_provider_error_text(answer):
+                            return _friendly_provider_error(language)
+                        return answer
+                    except Exception as gemini_fallback_error:
+                        print(f"[WARN] Gemini fallback failed: {gemini_fallback_error}")
+                        return _friendly_provider_error(language)
+                print(f"[WARN] ChatGPT request failed: {chatgpt_error}")
+                return _friendly_provider_error(language)
 
         if provider == "gemini":
-            gemini_model = genai.GenerativeModel(
-                model_name=model_name,
-                system_instruction=system_prompt,
-            )
-            response = gemini_model.generate_content(user_prompt)
-            text = getattr(response, "text", None) or ""
-            return text.strip() if text else "[API Error] Gemini returned an empty response."
+            try:
+                answer = _generate_gemini_response(query, context, language, model_name=model_name)
+                if _looks_like_provider_error_text(answer):
+                    return _friendly_provider_error(language)
+                return answer
+            except Exception as gemini_error:
+                print(f"[WARN] Gemini request failed: {gemini_error}")
+                return _friendly_provider_error(language)
 
-        if provider == "claude":
-            response = client.messages.create(
-                model=model_name,
-                max_tokens=600,
-                temperature=0.3,
-                system=system_prompt,
-                messages=[
-                    {"role": "user", "content": user_prompt},
-                ],
-            )
-            text_blocks = [block.text for block in response.content if hasattr(block, "text")]
-            text = "\n".join(text_blocks).strip()
-            return text if text else "[API Error] Claude returned an empty response."
-
-        return f"[API Error] Unsupported provider runtime: {provider}"
+        print(f"[WARN] Unsupported provider runtime: {provider}")
+        return _friendly_provider_error(language)
     except Exception as e:
-        return f"[API Error] Could not get response: {e}"
+        print(f"[WARN] Could not get provider response: {e}")
+        return _friendly_provider_error(language)
 
 
 # ============================================================
@@ -453,7 +600,7 @@ def main():
         current_lang = detect_language(user_input)
 
         # Quit commands
-        if user_input.lower() in ["quit", "exit", "bye", "बाय", "अलविदा"]:
+        if user_input.lower() in ["quit", "exit", "bye"]:
             print(f"Chatbot: {MESSAGES[current_lang]['goodbye']}")
             break
 
@@ -470,8 +617,8 @@ def main():
         # Retrieve context
         context, score = retrieve_context(query, faiss_index, chunks, embed_model)
 
-        # Check relevance threshold
-        if not context or score < 0.2:
+        # Flag only when no useful context is found at all.
+        if not context:
             flag_for_admin(user_input, current_lang)
             print(f"Chatbot: {MESSAGES[current_lang]['no_answer']}\n")
             continue

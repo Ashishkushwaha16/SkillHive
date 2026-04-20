@@ -344,3 +344,18 @@ export const getFeedbackEntries = async () => {
     headers: getAuthHeaders(),
   }, withAuthHandling);
 };
+
+export const getAiSearchQuickIssues = async () => {
+  return requestJson(`${API_ENDPOINTS.aiSearchConfig}/quick-issues`, {
+    method: "GET",
+    headers: getAuthHeaders(),
+  }, withAuthHandling);
+};
+
+export const updateAiSearchQuickIssues = async (issues) => {
+  return requestJson(`${API_ENDPOINTS.aiSearchConfig}/quick-issues`, {
+    method: "PUT",
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ issues }),
+  }, withAuthHandling);
+};

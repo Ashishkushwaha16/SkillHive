@@ -4,6 +4,8 @@ Exposes /chat endpoint for frontend chatbot integration
 """
 
 import os
+import json
+from pathlib import Path
 
 from flask import Flask, request, jsonify
 from flask_cors import CORS
@@ -22,9 +24,100 @@ from app import (
     normalize_provider,
     get_provider_display_name,
     build_llm_runtime,
+    generate_ai_search_response,
     EMBED_MODEL,
+    _friendly_provider_error,
+    _looks_like_provider_error_text,
 )
 from sentence_transformers import SentenceTransformer
+
+DEFAULT_AI_SEARCH_QUICK_ISSUES = [
+    {
+        "id": "login",
+        "label": "Login Issue",
+        "prompt": "I cannot login to SkillHive. What should I check first?",
+    },
+    {
+        "id": "messages",
+        "label": "Message Issue",
+        "prompt": "Messages are not appearing correctly in SkillHive. How can I fix this?",
+    },
+    {
+        "id": "feedback",
+        "label": "Feedback Flow",
+        "prompt": "How do I submit product feedback and where can admin see it?",
+    },
+    {
+        "id": "profile",
+        "label": "Profile Update",
+        "prompt": "My profile skills are not updating. What troubleshooting steps should I follow?",
+    },
+]
+
+
+def _normalize_quick_issue(item: dict) -> dict | None:
+    issue_id = str(item.get("id", "")).strip()
+    label = str(item.get("label", "")).strip()
+    prompt = str(item.get("prompt", "")).strip()
+    if not issue_id or not label or not prompt:
+        return None
+    return {"id": issue_id, "label": label, "prompt": prompt}
+
+
+def load_ai_search_quick_issues() -> list[dict]:
+    file_path = Path(os.getenv("AI_SEARCH_QUICK_ISSUES_FILE", "knowledge_base/ai_search_quick_issues.json"))
+    if not file_path.exists():
+        return DEFAULT_AI_SEARCH_QUICK_ISSUES
+
+    try:
+        raw = json.loads(file_path.read_text(encoding="utf-8"))
+        if not isinstance(raw, list):
+            print(f"[WARN] {file_path} must contain a JSON array. Using default quick issues.")
+            return DEFAULT_AI_SEARCH_QUICK_ISSUES
+
+        normalized = []
+        for item in raw:
+            if isinstance(item, dict):
+                parsed = _normalize_quick_issue(item)
+                if parsed:
+                    normalized.append(parsed)
+
+        if normalized:
+            print(f"[INFO] Loaded {len(normalized)} AI Search quick issues from {file_path}")
+            return normalized
+
+        print(f"[WARN] No valid quick issue entries found in {file_path}. Using defaults.")
+        return DEFAULT_AI_SEARCH_QUICK_ISSUES
+    except Exception as config_error:
+        print(f"[WARN] Could not load quick issue config from {file_path}: {config_error}")
+        return DEFAULT_AI_SEARCH_QUICK_ISSUES
+
+
+AI_SEARCH_QUICK_ISSUES = load_ai_search_quick_issues()
+
+
+def is_small_talk_query(text: str) -> bool:
+    value = (text or "").strip().lower()
+    if not value:
+        return False
+
+    greetings = {
+        "hi",
+        "hello",
+        "hey",
+        "hii",
+        "heyy",
+        "yo",
+        "hola",
+        "good morning",
+        "good afternoon",
+        "good evening",
+    }
+
+    if value in greetings:
+        return True
+
+    return len(value.split()) <= 2
 
 # Initialize Flask app
 app_flask = Flask(__name__)
@@ -58,7 +151,7 @@ def chat():
     Response:
     {
         "reply": "AI Assistant response here",
-        "language": "en" or "hi"
+        "language": "en"
     }
     """
     try:
@@ -71,14 +164,16 @@ def chat():
         if not query:
             return jsonify({"error": "Message cannot be empty"}), 400
 
-        try:
-            runtime = build_llm_runtime(provider)
-        except Exception as provider_error:
-            return jsonify({
-                "error": str(provider_error),
-                "provider": provider,
-                "availableProviders": list(SUPPORTED_PROVIDERS),
-            }), 400
+        runtime = None
+        if provider != "ai-search":
+            try:
+                runtime = build_llm_runtime(provider)
+            except Exception as provider_error:
+                return jsonify({
+                    "error": str(provider_error),
+                    "provider": provider,
+                    "availableProviders": list(SUPPORTED_PROVIDERS),
+                }), 400
         
         # Detect language
         lang = detect_language(query)
@@ -86,8 +181,31 @@ def chat():
         # Retrieve context from knowledge base
         context, score = retrieve_context(query, faiss_index, chunks, embed_model)
         
-        # If no relevant context found, flag for admin
-        if not context or score < 0.2:
+        # If no relevant context found, only flag assistant queries.
+        # AI Search should still return a structured no-match response.
+        if not context:
+            if is_small_talk_query(query):
+                friendly_reply = (
+                    "I can help with SkillHive topics such as login issues, profile updates, "
+                    "messages, attendance, and feedback. Please ask a specific app-related question."
+                )
+
+                return jsonify({
+                    "reply": friendly_reply,
+                    "language": lang,
+                    "flagged": False,
+                    "provider": provider,
+                })
+
+            if provider == "ai-search":
+                answer = generate_ai_search_response(query, "", lang)
+                return jsonify({
+                    "reply": answer,
+                    "language": lang,
+                    "flagged": False,
+                    "provider": provider,
+                })
+
             flag_for_admin(query, lang)
             return jsonify({
                 "reply": MESSAGES[lang]["no_answer"],
@@ -96,8 +214,14 @@ def chat():
                 "provider": provider,
             })
         
-        # Generate response using the selected provider
-        answer = generate_response(query, context, lang, runtime)
+        if provider == "ai-search":
+            answer = generate_ai_search_response(query, context, lang)
+        else:
+            # Generate response using the selected provider
+            answer = generate_response(query, context, lang, runtime)
+
+        if isinstance(answer, str) and _looks_like_provider_error_text(answer):
+            answer = _friendly_provider_error(lang)
         
         return jsonify({
             "reply": answer,
@@ -119,7 +243,20 @@ def health():
         "service": "SkillHive AI Assistant",
         "defaultProvider": normalize_provider(DEFAULT_PROVIDER),
         "availableProviders": list(SUPPORTED_PROVIDERS),
+        "aiSearchQuickIssues": AI_SEARCH_QUICK_ISSUES,
     })
+
+
+@app_flask.route("/chat-config", methods=["GET"])
+def chat_config():
+    """Return UI-facing chat configuration so frontend can stay config-driven."""
+    return jsonify(
+        {
+            "aiSearchQuickIssues": AI_SEARCH_QUICK_ISSUES,
+            "defaultProvider": normalize_provider(DEFAULT_PROVIDER),
+            "availableProviders": list(SUPPORTED_PROVIDERS),
+        }
+    )
 
 
 if __name__ == "__main__":

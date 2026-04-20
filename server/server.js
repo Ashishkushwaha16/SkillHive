@@ -14,6 +14,7 @@ const notificationRoutes = require("./routes/notificationRoutes");
 const postRoutes = require("./routes/postRoutes");
 const feedbackRoutes = require("./routes/feedbackRoutes");
 const callRoutes = require("./routes/callRoutes");
+const aiSearchConfigRoutes = require("./routes/aiSearchConfigRoutes");
 const { apiLimiter } = require("./middleware/rateLimiter");
 const { notFound, errorHandler } = require("./middleware/errorMiddleware");
 const { initChatSocket } = require("./socket/chatSocket");
@@ -44,6 +45,7 @@ app.use("/api/notifications", notificationRoutes);
 app.use("/api/posts", postRoutes);
 app.use("/api/feedback", feedbackRoutes);
 app.use("/api/calls", callRoutes);
+app.use("/api/ai-search-config", aiSearchConfigRoutes);
 
 app.get("/", (req, res) => {
   res.json({ message: "SkillHive API Running..." });

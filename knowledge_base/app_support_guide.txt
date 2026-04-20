@@ -1,0 +1,46 @@
+SkillHive App Support Guide
+
+SkillHive is a skill exchange and collaborative learning platform where users can build profiles, add skills, connect with others, and learn together.
+
+Common user support questions and solutions:
+
+1) I cannot login
+- Check whether email and password are correct.
+- If you forgot password, use the reset password option.
+- If reset link does not open, verify that the app URL and frontend origin are configured correctly.
+
+2) I am not receiving messages
+- Confirm internet connection and session is active.
+- Re-open chat screen and check if notifications are enabled.
+- If issue continues, log out and login again.
+
+3) Profile skills are not updating
+- Save profile changes and wait for success confirmation.
+- Refresh the profile page once.
+- Ensure required profile fields are not empty.
+
+4) Product feedback submission
+- Open Contact page and use Submit Product Feedback.
+- Fill category and message clearly.
+- Feedback is stored on server and visible in Admin Messages panel.
+
+5) I cannot find users by skills
+- Use search with exact or close skill keywords.
+- Update your own profile skills in standard naming format.
+- Retry with one skill keyword at a time.
+
+6) AI assistant is not responding
+- Ensure Python AI server is running on configured assistant port.
+- For external providers (ChatGPT/Gemini), verify valid API key and model name.
+- If keys are missing, switch to AI Search Engine mode for retrieval-only app guidance.
+
+7) Attendance and leave confusion
+- Check attendance policy and working hours information from Attendance section.
+- Raise a support request if policy detail is still unclear.
+
+8) Guidelines and evaluation help
+- Use Guidelines section for behavior and platform usage.
+- Use Performance and evaluation section for scoring and growth expectations.
+
+Support escalation:
+- If your issue is not resolved by AI responses, use Help/Support section and contact admin or mentor with screenshots and exact steps to reproduce the issue.

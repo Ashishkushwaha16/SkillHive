@@ -7,6 +7,21 @@ on:
     branches: [main, feature/**]
 
 jobs:
+  ai-assistant-checks:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Run AI assistant syntax checks
+        run: python -m py_compile app.py server.py
+
   server-tests:
     runs-on: ubuntu-latest
 
@@ -28,8 +43,18 @@ jobs:
       - name: Install server dependencies
         run: npm ci
 
-      - name: Run backend tests
-        run: npm test
+      - name: Run backend CI
+        uses: ./.github/actions/node-ci
+        with:
+          working-directory: server
+          failure-label: backend
+          smoke-command: node -e "require('./middleware/validateRequest'); require('./middleware/authMiddleware'); require('./validators/authValidators'); console.log('Backend smoke check passed')"
+          main-command: npm test -- --verbose
+          diagnostics-command: |
+            echo "Node version: $(node -v)"
+            echo "npm version: $(npm -v)"
+            npm ls jest supertest express-validator --depth=0
+            npm test -- --verbose || true
 
   client-build:
     runs-on: ubuntu-latest
@@ -52,8 +77,15 @@ jobs:
       - name: Install client dependencies
         run: npm ci
 
-      - name: Build frontend
-        env:
-          CI: true
-          REACT_APP_API_BASE_URL: http://localhost:5000
-        run: npm run build
+      - name: Run frontend CI
+        uses: ./.github/actions/node-ci
+        with:
+          working-directory: client
+          failure-label: frontend
+          smoke-command: node -e "require('./src/config/api'); console.log('Frontend smoke check passed')"
+          main-command: npm run build
+          diagnostics-command: |
+            echo "Node version: $(node -v)"
+            echo "npm version: $(npm -v)"
+            npm ls react react-scripts --depth=0
+            npm run build || true

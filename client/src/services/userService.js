@@ -337,3 +337,10 @@ export const submitFeedback = async ({ category, message }) => {
     body: JSON.stringify({ category, message }),
   }, withAuthHandling);
 };
+
+export const getFeedbackEntries = async () => {
+  return requestJson(API_ENDPOINTS.feedback, {
+    method: "GET",
+    headers: getAuthHeaders(),
+  }, withAuthHandling);
+};

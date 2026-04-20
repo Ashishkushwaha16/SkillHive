@@ -1,0 +1,56 @@
+name: Node CI Runner
+description: Run a smoke check and a main Node command with consistent diagnostics on failure.
+
+inputs:
+  working-directory:
+    description: Working directory for the command.
+    required: true
+  smoke-command:
+    description: Optional smoke command to run before the main command.
+    required: false
+    default: ""
+  main-command:
+    description: Main command to run.
+    required: true
+  diagnostics-command:
+    description: Diagnostics command to run when smoke or main command fails.
+    required: true
+  failure-label:
+    description: Human-readable label used in log messages.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Run smoke and main command
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        SMOKE_COMMAND: ${{ inputs.smoke-command }}
+        MAIN_COMMAND: ${{ inputs.main-command }}
+        DIAGNOSTICS_COMMAND: ${{ inputs.diagnostics-command }}
+        FAILURE_LABEL: ${{ inputs.failure-label }}
+      run: |
+        set +e
+
+        if [ -n "$SMOKE_COMMAND" ]; then
+          echo "Running $FAILURE_LABEL smoke check..."
+          eval "$SMOKE_COMMAND"
+          smoke_status=$?
+          if [ "$smoke_status" -ne 0 ]; then
+            echo "$FAILURE_LABEL smoke check failed with exit code $smoke_status"
+            eval "$DIAGNOSTICS_COMMAND" || true
+            exit "$smoke_status"
+          fi
+        fi
+
+        echo "Running $FAILURE_LABEL main command..."
+        eval "$MAIN_COMMAND"
+        main_status=$?
+        if [ "$main_status" -ne 0 ]; then
+          echo "$FAILURE_LABEL main command failed with exit code $main_status"
+          eval "$DIAGNOSTICS_COMMAND" || true
+          exit "$main_status"
+        fi
+
+        echo "$FAILURE_LABEL completed successfully"

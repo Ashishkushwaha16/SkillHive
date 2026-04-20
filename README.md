@@ -152,6 +152,12 @@ npm --prefix client run build
 python -m py_compile app.py server.py
 ```
 
+CI also runs lightweight smoke checks before the main backend and frontend jobs, and it prints extra diagnostics when a step fails.
+
+The CI pipeline also includes an `ai-assistant-checks` job for Python syntax validation of `app.py` and `server.py`.
+
+If you are upgrading from older deployments, review [docs/review-index-migration.md](docs/review-index-migration.md) for the `reviews` collection index cleanup steps.
+
 ---
 
 ## 🔐 Security Practices

@@ -918,10 +918,21 @@ const rateUser = async (req, res) => {
     const safeComment =
       typeof comment === "string" ? comment.trim().slice(0, 300) : "";
 
+    const reviewFilter = {
+      $or: [
+        { reviewer: currentUserId, reviewee: ratedUserId },
+        { mentorId: currentUserId, learnerId: ratedUserId },
+      ],
+    };
+
     await Review.findOneAndUpdate(
-      { reviewer: currentUserId, reviewee: ratedUserId },
+      reviewFilter,
       {
         $set: {
+          reviewer: currentUserId,
+          reviewee: ratedUserId,
+          mentorId: currentUserId,
+          learnerId: ratedUserId,
           rating,
           comment: safeComment,
         },
@@ -929,13 +940,14 @@ const rateUser = async (req, res) => {
       {
         upsert: true,
         new: true,
+        setDefaultsOnInsert: true,
       }
     );
 
     const [summary] = await Review.aggregate([
       {
         $match: {
-          reviewee: ratedUser._id,
+          $or: [{ reviewee: ratedUser._id }, { learnerId: ratedUser._id }],
         },
       },
       {
@@ -967,12 +979,22 @@ const getUserReviews = async (req, res) => {
   try {
     const { userId } = req.params;
 
-    const reviews = await Review.find({ reviewee: userId })
+    const reviews = await Review.find({
+      $or: [{ reviewee: userId }, { learnerId: userId }],
+    })
       .populate("reviewer", "name email avatar")
-      .select("rating comment reviewer createdAt updatedAt")
+      .populate("mentorId", "name email avatar")
+      .select("rating comment reviewer reviewee mentorId learnerId createdAt updatedAt")
       .sort({ updatedAt: -1 });
 
-    return res.status(200).json(reviews);
+    const normalizedReviews = reviews.map((review) => {
+      const reviewObject = review.toObject();
+      reviewObject.reviewer = reviewObject.reviewer || reviewObject.mentorId;
+      reviewObject.reviewee = reviewObject.reviewee || reviewObject.learnerId;
+      return reviewObject;
+    });
+
+    return res.status(200).json(normalizedReviews);
   } catch (error) {
     return res.status(500).json({ message: error.message });
   }

@@ -1,11 +1,12 @@
 """
 SkillHive AI Assistant - Flask Server for Website Integration
-Exposes /chat endpoint for frontend chatbot integration
+Exposes /chat endpoint for frontend chatbot integration with Advanced Search
 """
 
 import os
 import json
 from pathlib import Path
+from datetime import datetime
 
 from flask import Flask, request, jsonify
 from flask_cors import CORS
@@ -15,6 +16,7 @@ from app import (
     chunk_documents,
     build_faiss_index,
     retrieve_context,
+    retrieve_context_advanced,
     generate_response,
     detect_language,
     flag_for_admin,
@@ -29,6 +31,7 @@ from app import (
     _friendly_provider_error,
     _looks_like_provider_error_text,
 )
+from advanced_search import AdvancedSearchEngine
 from sentence_transformers import SentenceTransformer
 
 DEFAULT_AI_SEARCH_QUICK_ISSUES = [
@@ -132,6 +135,10 @@ print("[INFO] Building FAISS index...")
 embed_model = SentenceTransformer(EMBED_MODEL)
 faiss_index, chunk_list = build_faiss_index(chunks, embed_model)
 
+# Initialize Advanced Search Engine
+print("[INFO] Initializing Advanced Search Engine...")
+search_engine = AdvancedSearchEngine(chunks, embed_model)
+
 AI_ASSISTANT_PORT = int(os.getenv("AI_ASSISTANT_PORT", "5050"))
 
 print(f"[INFO] Default provider: {get_provider_display_name(DEFAULT_PROVIDER)}")
@@ -179,7 +186,13 @@ def chat():
         lang = detect_language(query)
         
         # Retrieve context from knowledge base
-        context, score = retrieve_context(query, faiss_index, chunks, embed_model)
+        if provider == "ai-search":
+            # Use advanced search engine for AI Search
+            context, score, search_result = retrieve_context_advanced(query, search_engine, top_k=3)
+        else:
+            # Use standard retrieval for LLM providers
+            context, score = retrieve_context(query, faiss_index, chunks, embed_model)
+            search_result = None
         
         # If no relevant context found, only flag assistant queries.
         # AI Search should still return a structured no-match response.
@@ -198,7 +211,7 @@ def chat():
                 })
 
             if provider == "ai-search":
-                answer = generate_ai_search_response(query, "", lang)
+                answer = generate_ai_search_response(query, "", lang, search_result)
                 return jsonify({
                     "reply": answer,
                     "language": lang,
@@ -215,7 +228,7 @@ def chat():
             })
         
         if provider == "ai-search":
-            answer = generate_ai_search_response(query, context, lang)
+            answer = generate_ai_search_response(query, context, lang, search_result)
         else:
             # Generate response using the selected provider
             answer = generate_response(query, context, lang, runtime)
@@ -257,6 +270,43 @@ def chat_config():
             "availableProviders": list(SUPPORTED_PROVIDERS),
         }
     )
+
+
+@app_flask.route("/search-analytics", methods=["GET"])
+def search_analytics():
+    """
+    Get search analytics: popular queries and their statistics.
+    Endpoint for admin dashboard.
+    """
+    try:
+        limit = request.args.get("limit", default=10, type=int)
+        popular = search_engine.get_popular_queries(limit=limit)
+        return jsonify({
+            "popular_queries": popular,
+            "timestamp": datetime.now().isoformat()
+        })
+    except Exception as e:
+        print(f"[ERROR] Analytics endpoint error: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app_flask.route("/zero-result-queries", methods=["GET"])
+def zero_result_queries():
+    """
+    Get queries that returned zero results.
+    Endpoint for admin dashboard to identify knowledge base gaps.
+    """
+    try:
+        limit = request.args.get("limit", default=10, type=int)
+        zero_results = search_engine.get_zero_result_queries(limit=limit)
+        return jsonify({
+            "zero_result_queries": zero_results,
+            "count": len(zero_results),
+            "timestamp": datetime.now().isoformat()
+        })
+    except Exception as e:
+        print(f"[ERROR] Zero-result queries endpoint error: {e}")
+        return jsonify({"error": str(e)}), 500
 
 
 if __name__ == "__main__":

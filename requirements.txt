@@ -6,3 +6,6 @@ numpy==2.3.2
 flask==3.0.0
 flask-cors==4.0.0
 python-dotenv==1.0.1
+rank-bm25==0.2.2
+fuzzywuzzy==0.18.0
+python-Levenshtein==0.21.1

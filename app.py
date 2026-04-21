@@ -1,6 +1,7 @@
 """
 SkillHive AI Assistant - RAG-based Chatbot
-Uses: SentenceTransformers + FAISS + ChatGPT / Gemini APIs
+Uses: SentenceTransformers + Advanced Hybrid Search + ChatGPT / Gemini APIs
+Features: BM25 + Vector Search, Fuzzy Matching, Query Expansion, Analytics
 """
 
 import os
@@ -18,6 +19,7 @@ except ImportError:  # pragma: no cover - optional local env dependency
 import faiss
 import numpy as np
 from sentence_transformers import SentenceTransformer
+from advanced_search import AdvancedSearchEngine
 
 try:
     from openai import OpenAI
@@ -246,10 +248,38 @@ def build_faiss_index(chunks: list[dict], model: SentenceTransformer):
 
 
 # ============================================================
-# STEP 5 & 6: RETRIEVE RELEVANT CONTEXT
+# STEP 5 & 6: ADVANCED RETRIEVE WITH HYBRID RANKING
 # ============================================================
-def retrieve_context(query: str, index, chunks: list[dict], model: SentenceTransformer, top_k: int = 3) -> tuple[str, float]:
-    """Embed query and retrieve top-k relevant chunks."""
+def retrieve_context_advanced(query: str, search_engine: AdvancedSearchEngine, top_k: int = 3) -> tuple[str, float, dict]:
+    """
+    Advanced retrieval using hybrid ranking (BM25 + Vector), fuzzy matching, and query expansion.
+    Returns: (formatted_context, best_score, full_search_result)
+    """
+    search_result = search_engine.search(query, top_k=top_k, include_fuzzy=True)
+    
+    # Build formatted context from results
+    context_parts = []
+    best_score = 0.0
+    
+    for result in search_result.get("results", []):
+        best_score = max(best_score, result.get("score", 0))
+        source = result["source"]
+        content = result["content"]
+        score = result["score"]
+        context_parts.append(f"[Source: {source} | Confidence: {score:.1%}]\n{content}")
+    
+    formatted_context = "\n\n---\n\n".join(context_parts) if context_parts else ""
+    
+    return formatted_context, best_score, search_result
+
+
+def retrieve_context(query: str, index, chunks: list[dict], model: SentenceTransformer, top_k: int = 3, search_engine: AdvancedSearchEngine | None = None) -> tuple[str, float]:
+    """Legacy function for compatibility. Delegates to advanced search if available."""
+    if search_engine:
+        context, score, _ = retrieve_context_advanced(query, search_engine, top_k)
+        return context, score
+    
+    # Fallback to old method if no search engine
     q_vec = model.encode([query], convert_to_numpy=True).astype("float32")
     faiss.normalize_L2(q_vec)
     scores, indices = index.search(q_vec, top_k)
@@ -262,8 +292,6 @@ def retrieve_context(query: str, index, chunks: list[dict], model: SentenceTrans
             content = chunks[idx]["content"]
             context_parts.append(f"[Source: {src}]\n{content}")
 
-    # If nothing crossed threshold but the top match is still somewhat related,
-    # use it as a soft fallback instead of immediately flagging as unresolved.
     if not context_parts and len(indices[0]) > 0 and best_score >= RETRIEVAL_MIN_FALLBACK_SCORE:
         top_idx = int(indices[0][0])
         src = chunks[top_idx]["source"]
@@ -273,8 +301,53 @@ def retrieve_context(query: str, index, chunks: list[dict], model: SentenceTrans
     return "\n\n---\n\n".join(context_parts), best_score
 
 
-def generate_ai_search_response(query: str, context: str, language: str) -> str:
-    """Build a retrieval-only answer that does not require external provider APIs."""
+def generate_ai_search_response(query: str, context: str, language: str, search_result: dict | None = None) -> str:
+    """Build a professional retrieval-only answer with confidence indicators."""
+    if not context and not search_result:
+        return (
+            "🔍 **AI Search Engine**\n\n"
+            "Your query: '*' + query + '*'\n\n"
+            "❌ No matching content found in the knowledge base.\n\n"
+            "**Try:**\n"
+            "- Refine your search terms\n"
+            "- Ask a different question\n"
+            "- Contact Help/Support for manual assistance"
+        ).replace("'", "\"")
+    
+    # Use advanced search result if available
+    if search_result and search_result.get("has_results"):
+        results = search_result.get("results", [])
+        confidence = search_result.get("confidence", 0)
+        
+        # Build answer
+        answer_parts = [
+            "🔍 **AI Search Engine Result**\n",
+            f"Your query: \"{query}\"\n",
+            f"Confidence: {confidence:.0%}\n\n",
+            "📚 **Retrieved Information:**\n"
+        ]
+        
+        for result in results:
+            source = result["source"]
+            content = result["content"]
+            score = result["score"]
+            
+            answer_parts.append(
+                f"\n**[Source: {source}]** (Match: {score:.0%})\n"
+                f"{content}\n"
+            )
+        
+        # Add suggestions if confidence is low
+        if confidence < 0.5 and search_result.get("suggestions"):
+            answer_parts.append("\n💡 **Related Topics:**\n")
+            for suggestion in search_result["suggestions"][:3]:
+                answer_parts.append(f"- {suggestion}\n")
+        
+        answer_parts.append("\n📞 If this doesn't fully solve your issue, please contact Help/Support.")
+        
+        return "".join(answer_parts)
+    
+    # Fallback to simple format
     sections = [part.strip() for part in context.split("\n\n---\n\n") if part.strip()]
     sources: list[str] = []
     points: list[str] = []
@@ -283,7 +356,7 @@ def generate_ai_search_response(query: str, context: str, language: str) -> str:
         lines = [line.strip() for line in section.splitlines() if line.strip()]
         source = ""
         if lines and lines[0].startswith("[Source:"):
-            source = lines[0].replace("[Source:", "").replace("]", "").strip()
+            source = lines[0].replace("[Source:", "").replace("]", "").split("|")[0].strip()
             lines = lines[1:]
         text = " ".join(lines).strip()
         if text:
@@ -291,15 +364,16 @@ def generate_ai_search_response(query: str, context: str, language: str) -> str:
         if source and source not in sources:
             sources.append(source)
 
-    bullets = "\n".join([f"- {point}" for point in points]) if points else "- No matching content was found in the current knowledge base."
+    bullets = "\n".join([f"- {point}" for point in points]) if points else "- No matching content found."
     source_text = ", ".join(sources) if sources else "knowledge base"
+    
     return (
-        "AI Search Engine Result:\n"
-        f"Your query: '{query}'\n\n"
-        "The following information was retrieved directly from the SkillHive knowledge base:\n"
+        "🔍 **AI Search Engine Result**\n"
+        f"Your query: \"{query}\"\n\n"
+        "📚 **Retrieved Information:**\n"
         f"{bullets}\n\n"
-        f"Sources: {source_text}\n"
-        "If this does not fully solve your issue, please contact Help/Support for manual assistance."
+        f"📎 **Sources:** {source_text}\n"
+        "📞 If this doesn't fully solve your issue, please contact Help/Support."
     )
 
 

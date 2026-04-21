@@ -1,6 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import PageLayout from "../components/PageLayout";
-import { getFeedbackEntries, getMessages } from "../services/userService";
+import {
+  getAiSearchQuickIssues,
+  getFeedbackEntries,
+  getMessages,
+  updateAiSearchQuickIssues,
+} from "../services/userService";
 
 const AdminMessages = () => {
   const [messages, setMessages] = useState([]);
@@ -11,20 +16,28 @@ const AdminMessages = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
+  const [quickIssues, setQuickIssues] = useState([]);
+  const [quickIssuesLoading, setQuickIssuesLoading] = useState(true);
+  const [quickIssuesSaving, setQuickIssuesSaving] = useState(false);
+  const [quickIssuesError, setQuickIssuesError] = useState("");
+  const [quickIssuesSuccess, setQuickIssuesSuccess] = useState("");
 
   useEffect(() => {
     const loadMessages = async () => {
       try {
-        const [messagesData, feedbackData] = await Promise.all([
+        const [messagesData, feedbackData, quickIssueData] = await Promise.all([
           getMessages(),
           getFeedbackEntries(),
+          getAiSearchQuickIssues(),
         ]);
         setMessages(messagesData);
         setFeedbackEntries(feedbackData);
+        setQuickIssues(Array.isArray(quickIssueData?.issues) ? quickIssueData.issues : []);
       } catch (err) {
         setError(err.message);
       } finally {
         setLoading(false);
+        setQuickIssuesLoading(false);
       }
     };
 
@@ -71,6 +84,68 @@ const AdminMessages = () => {
       return true;
     });
   }, [feedbackEntries, selectedCategory, searchTerm, fromDate, toDate]);
+
+  const updateQuickIssueField = (index, field, value) => {
+    setQuickIssues((prev) =>
+      prev.map((item, currentIndex) =>
+        currentIndex === index ? { ...item, [field]: value } : item
+      )
+    );
+    setQuickIssuesSuccess("");
+    setQuickIssuesError("");
+  };
+
+  const addQuickIssue = () => {
+    setQuickIssues((prev) => [
+      ...prev,
+      {
+        id: `issue-${Date.now()}`,
+        label: "",
+        prompt: "",
+      },
+    ]);
+    setQuickIssuesSuccess("");
+    setQuickIssuesError("");
+  };
+
+  const removeQuickIssue = (index) => {
+    setQuickIssues((prev) => prev.filter((_, currentIndex) => currentIndex !== index));
+    setQuickIssuesSuccess("");
+    setQuickIssuesError("");
+  };
+
+  const saveQuickIssues = async () => {
+    setQuickIssuesSaving(true);
+    setQuickIssuesError("");
+    setQuickIssuesSuccess("");
+
+    try {
+      const payload = quickIssues.map((item) => ({
+        id: String(item.id || "").trim(),
+        label: String(item.label || "").trim(),
+        prompt: String(item.prompt || "").trim(),
+      }));
+
+      const duplicateCheck = new Set();
+      for (const item of payload) {
+        if (!item.id || !item.label || !item.prompt) {
+          throw new Error("Each quick issue must include id, label, and prompt.");
+        }
+        if (duplicateCheck.has(item.id)) {
+          throw new Error(`Duplicate quick issue id found: ${item.id}`);
+        }
+        duplicateCheck.add(item.id);
+      }
+
+      const response = await updateAiSearchQuickIssues(payload);
+      setQuickIssues(Array.isArray(response?.issues) ? response.issues : payload);
+      setQuickIssuesSuccess("AI Search quick issues updated successfully.");
+    } catch (saveError) {
+      setQuickIssuesError(saveError.message || "Failed to update quick issues");
+    } finally {
+      setQuickIssuesSaving(false);
+    }
+  };
 
   return (
     <PageLayout
@@ -206,6 +281,101 @@ const AdminMessages = () => {
             ) : (
               <p className="mt-4 text-slate-600">No product feedback found for selected filters.</p>
             )}
+          </div>
+        ) : null}
+
+        {!loading && !error ? (
+          <div className="mt-8 border-t border-slate-200 pt-6">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h3 className="text-base font-bold text-slate-900">AI Search Quick Issues</h3>
+                <p className="mt-1 text-xs text-slate-500">
+                  Manage one-click prompts shown in Support &gt; AI Search Engine.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={addQuickIssue}
+                className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+              >
+                Add Issue
+              </button>
+            </div>
+
+            {quickIssuesLoading ? <p className="mt-3 text-sm text-slate-600">Loading quick issue config...</p> : null}
+            {quickIssuesError ? <p className="mt-3 text-sm text-red-600">{quickIssuesError}</p> : null}
+            {quickIssuesSuccess ? <p className="mt-3 text-sm text-emerald-600">{quickIssuesSuccess}</p> : null}
+
+            {!quickIssuesLoading && quickIssues.length ? (
+              <div className="mt-4 space-y-3">
+                {quickIssues.map((item, index) => (
+                  <div key={`${item.id}-${index}`} className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                    <div className="grid gap-3 md:grid-cols-12">
+                      <div className="md:col-span-3">
+                        <label className="mb-1 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
+                          ID
+                        </label>
+                        <input
+                          type="text"
+                          className="ui-input"
+                          value={item.id}
+                          onChange={(event) => updateQuickIssueField(index, "id", event.target.value)}
+                        />
+                      </div>
+
+                      <div className="md:col-span-3">
+                        <label className="mb-1 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
+                          Label
+                        </label>
+                        <input
+                          type="text"
+                          className="ui-input"
+                          value={item.label}
+                          onChange={(event) => updateQuickIssueField(index, "label", event.target.value)}
+                        />
+                      </div>
+
+                      <div className="md:col-span-5">
+                        <label className="mb-1 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
+                          Prompt
+                        </label>
+                        <input
+                          type="text"
+                          className="ui-input"
+                          value={item.prompt}
+                          onChange={(event) => updateQuickIssueField(index, "prompt", event.target.value)}
+                        />
+                      </div>
+
+                      <div className="flex items-end md:col-span-1">
+                        <button
+                          type="button"
+                          onClick={() => removeQuickIssue(index)}
+                          className="w-full rounded-lg border border-rose-200 bg-rose-50 px-2 py-2 text-xs font-semibold text-rose-700 hover:bg-rose-100"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+
+            {!quickIssuesLoading && !quickIssues.length ? (
+              <p className="mt-4 text-sm text-slate-600">No quick issues configured yet.</p>
+            ) : null}
+
+            <div className="mt-4">
+              <button
+                type="button"
+                onClick={saveQuickIssues}
+                disabled={quickIssuesSaving}
+                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {quickIssuesSaving ? "Saving..." : "Save Quick Issues"}
+              </button>
+            </div>
           </div>
         ) : null}
       </div>

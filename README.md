@@ -1,196 +1,160 @@
 # SkillHive
 
-SkillHive is a **real-time skill exchange and collaborative learning platform** where users can connect, share knowledge, and grow together.
+SkillHive is a full-stack learning and collaboration platform with real-time messaging, profile management, and an AI support assistant.
 
-It combines **secure authentication, smart skill matching, real-time communication, and AI-powered assistance** to create a modern learning ecosystem.
+## Features
 
----
+- Secure authentication with JWT
+- User profiles and skill-based discovery
+- Real-time messaging with Socket.io
+- Notifications and feedback flows
+- AI Assistant with RAG-based answers (ChatGPT or Gemini)
+- AI Search Engine mode for knowledge-base-only support
+- Admin-managed quick issue prompts for AI Search
 
-## ✨ Key Features
-
-* 🔐 Secure authentication with JWT
-* 👤 Profile management with skills and user details
-* 🔍 Smart skill-based user discovery
-* 💬 Real-time chat with Socket.io
-* 🔔 Notifications system
-* 🤖 AI-powered assistant using RAG (Retrieval-Augmented Generation)
-* 🌐 Multilingual AI responses (English/Hindi)
-* 📄 Help, support, and legal pages
-
----
-
-## 🧑‍💻 User Capabilities
-
-* Register and manage profile
-* Add and update skills
-* Discover and connect with other users
-* Chat in real time
-* Receive notifications
-* Ask AI assistant for contextual help
-
----
-
-## 🏗️ Tech Stack
+## Tech Stack
 
 ### Frontend
 
-* React
-* React Router
-* Tailwind CSS
-* Socket.io Client
+- React
+- React Router
+- Tailwind CSS
+- Socket.io Client
 
 ### Backend
 
-* Node.js
-* Express.js
-* MongoDB (Mongoose)
-* JWT Authentication + RBAC
-* Socket.io
+- Node.js
+- Express.js
+- MongoDB with Mongoose
+- JWT authentication and role-based authorization
+- Socket.io
 
-### AI Assistant
+### AI Service
 
-* Python (Flask API)
-* RAG-based retrieval system
-* LLM-powered responses
+- Python
+- Flask + Flask-CORS
+- SentenceTransformers + FAISS
+- OpenAI and Google Gemini SDKs
 
----
-
-## 📂 Project Structure
+## Project Structure
 
 ```text
 SkillHive/
-├── client/        # React frontend
-├── server/        # Node.js backend
-├── app.py         # AI core logic
-├── server.py      # Flask AI server
-├── knowledge_base/
-├── requirements.txt
-└── .env.example
+|-- client/
+|-- server/
+|-- knowledge_base/
+|-- app.py
+|-- server.py
+|-- requirements.txt
+`-- .env.example
 ```
 
----
+## Environment Setup
 
-## ⚙️ Local Setup
-
-### 1️⃣ Install Dependencies
-
-```bash
-npm --prefix server install
-npm --prefix client install
-```
-
-### 2️⃣ Setup Environment
-
-Copy one of the environment templates to `.env`:
+Copy one template and update it with real values:
 
 ```powershell
 Copy-Item .env.example .env
 ```
 
-For production-style setup, you can also use:
+Required variables:
 
-```powershell
-Copy-Item .env.production.example .env
-```
+- `MONGO_URI`
+- `JWT_SECRET`
+- `CLIENT_ORIGIN`
+- `REACT_APP_API_BASE_URL`
+- `REACT_APP_AI_ASSISTANT_URL`
+- `AI_PROVIDER` (`chatgpt`, `gemini`, or `ai-search`)
+- `AI_ASSISTANT_PORT`
+- `AI_SEARCH_QUICK_ISSUES_FILE`
+- `OPENAI_API_KEY` when using ChatGPT
+- `GEMINI_API_KEY` when using Gemini
 
-Fill required values:
+If you want retrieval-only support without external provider keys, set `AI_PROVIDER=ai-search`.
 
-* `MONGO_URI`
-* `JWT_SECRET`
-* `CLIENT_ORIGIN`
-* `REACT_APP_API_BASE_URL`
-* `AI_PROVIDER`
-* `AI_ASSISTANT_PORT`
-* API keys for the selected AI providers
-
-### 3️⃣ Run Application
+## Install Dependencies
 
 ```bash
-# Backend
+npm --prefix server install
+npm --prefix client install
+python -m pip install -r requirements.txt
+```
+
+## Run Locally
+
+```bash
+# Node backend
 npm --prefix server run dev
 ```
 
 ```bash
-# Frontend
+# React frontend
 npm --prefix client start
 ```
 
 ```bash
-# AI Assistant
+# Python AI server
 python server.py
 ```
 
----
+Default ports:
 
-## 🔌 API Endpoints
+- Backend API: `5000`
+- Frontend: `3000`
+- AI assistant API: `5050`
 
-### Backend
+## API Overview
 
-* `GET /health`
-* `GET /`
-* `/api/auth`
-* `/api/users`
-* `/api/chat`
-* `/api/messages`
-* `/api/notifications`
-* `/api/posts`
-* `/api/feedback`
-* `/api/calls`
+### Node backend
 
-### AI Assistant
+- `GET /health`
+- `GET /`
+- `/api/auth`
+- `/api/users`
+- `/api/chat`
+- `/api/messages`
+- `/api/notifications`
+- `/api/posts`
+- `/api/feedback`
+- `/api/calls`
+- `/api/ai-search-config`
 
-* `POST /chat`
-* `GET /health`
+### Python AI API
 
----
+- `POST /chat`
+- `GET /health`
+- `GET /chat-config`
 
-## 🧪 Testing
+### Admin AI Search configuration
+
+- `GET /api/ai-search-config/quick-issues`
+- `PUT /api/ai-search-config/quick-issues`
+
+## Validation Commands
 
 ```bash
 npm --prefix server test
 npm --prefix client run build
 python -m py_compile app.py server.py
-```
-
-AI provider connectivity probe:
-
-```bash
 python scripts/probe_ai_providers.py
 ```
 
-CI also runs lightweight smoke checks before the main backend and frontend jobs, and it prints extra diagnostics when a step fails.
+## Notes
 
-The CI pipeline also includes an `ai-assistant-checks` job for Python syntax validation of `app.py` and `server.py`.
+- Keep `.env` values real and do not commit secrets.
+- Runtime-generated files are ignored by git.
+- Quick issue prompts are configured from `knowledge_base/ai_search_quick_issues.json`.
 
-If you are upgrading from older deployments, review [docs/review-index-migration.md](docs/review-index-migration.md) for the `reviews` collection index cleanup steps.
+## Release Checklist
 
----
-
-## 🔐 Security Practices
-
-* Environment variables for secrets
-* JWT-based authentication
-* Input validation
-* No hardcoded sensitive data
-* Production-only `CLIENT_ORIGIN` for password reset links
-
----
-
-## 🚀 Future Enhancements
-
-* Session booking system
-* Advanced AI recommendations
-* Mobile application
-* Deployment on cloud platforms
-
----
-
-## 👨‍💻 Author
-
-Ashish Kushwaha
-
----
-
-## ⭐ Vision
-
-To build a **global skill exchange ecosystem** where learning is collaborative, accessible, and powered by intelligent systems.
+- Ensure Node API health endpoint returns `200` on production host.
+- Ensure AI API health endpoint returns `200` on production host.
+- Verify CORS origin is restricted to the real frontend domain.
+- Verify `JWT_SECRET` is long and random.
+- Verify database connection uses production credentials.
+- Verify `AI_PROVIDER` is intentionally set (`chatgpt`, `gemini`, or `ai-search`).
+- Verify provider keys are present only for enabled providers.
+- Run backend tests: `npm --prefix server test`.
+- Run frontend production build: `npm --prefix client run build`.
+- Run Python syntax checks: `python -m py_compile app.py server.py`.
+- Smoke test AI chat flow with both `/health` and `/chat` endpoints.

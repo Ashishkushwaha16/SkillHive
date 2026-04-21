@@ -11,6 +11,7 @@ export const API_ENDPOINTS = {
   calls: `${API_ORIGIN}/api/calls`,
   posts: `${API_ORIGIN}/api/posts`,
   feedback: `${API_ORIGIN}/api/feedback`,
+  aiSearchConfig: `${API_ORIGIN}/api/ai-search-config`,
 };
 
 export const SOCKET_ORIGIN = API_ORIGIN;

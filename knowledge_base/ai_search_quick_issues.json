@@ -1,0 +1,22 @@
+[
+  {
+    "id": "login",
+    "label": "Login Issue",
+    "prompt": "I cannot login to SkillHive. What should I check first?"
+  },
+  {
+    "id": "messages",
+    "label": "Message Issue",
+    "prompt": "Messages are not appearing correctly in SkillHive. How can I fix this?"
+  },
+  {
+    "id": "feedback",
+    "label": "Feedback Flow",
+    "prompt": "How do I submit product feedback and where can admin see it?"
+  },
+  {
+    "id": "profile",
+    "label": "Profile Update",
+    "prompt": "My profile skills are not updating. What troubleshooting steps should I follow?"
+  }
+]

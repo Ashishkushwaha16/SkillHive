@@ -2,39 +2,53 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 
 const assistantBaseUrl = process.env.REACT_APP_AI_ASSISTANT_URL || "http://localhost:5050";
 
-const providerOptions = [
+const assistantProviderOptions = [
   { id: "chatgpt", label: "ChatGPT", subtitle: "OpenAI" },
-  { id: "chatgpt-codex", label: "ChatGPT Codex", subtitle: "OpenAI" },
-  { id: "github-copilot", label: "GitHub Copilot", subtitle: "Microsoft" },
-  { id: "microsoft-copilot", label: "Microsoft Copilot", subtitle: "Microsoft" },
   { id: "gemini", label: "Gemini", subtitle: "Google" },
-  { id: "grok", label: "Grok", subtitle: "xAI" },
-  { id: "perplexity", label: "Perplexity", subtitle: "PPLX" },
-  { id: "claude", label: "Claude", subtitle: "Anthropic" },
 ];
 
-const getInitialMessage = () => ({
+const fallbackSearchQuickIssues = [
+  { id: "login", label: "Login Issue", prompt: "I cannot login to SkillHive. What should I check first?" },
+  { id: "messages", label: "Message Issue", prompt: "Messages are not appearing correctly in SkillHive. How can I fix this?" },
+  { id: "feedback", label: "Feedback Flow", prompt: "How do I submit product feedback and where can admin see it?" },
+  { id: "profile", label: "Profile Update", prompt: "My profile skills are not updating. What troubleshooting steps should I follow?" },
+];
+
+const getInitialMessage = (mode = "assistant") => ({
   id: 1,
   type: "bot",
   text:
-    "नमस्ते! 👋 मैं SkillHive Assistant हूँ। आप ChatGPT, ChatGPT Codex, GitHub Copilot, Microsoft Copilot, Gemini, Grok, Perplexity, या Claude में से किसी provider के साथ Attendance, Guidelines, Performance, Tasks, DSA, Courses, या Help के बारे में पूछ सकते हैं.\n\nHello! 👋 I am your SkillHive Assistant. You can ask about Attendance, Guidelines, Performance, Tasks, DSA, Courses, or Help with ChatGPT, ChatGPT Codex, GitHub Copilot, Microsoft Copilot, Gemini, Grok, Perplexity, or Claude.",
+    mode === "search"
+      ? "AI Search Engine is active. Ask direct app troubleshooting questions or use the quick issue buttons below."
+      : "AI Assistant is active. Choose a provider for conversational support and deeper guidance.",
   timestamp: new Date(),
 });
 
 const getProviderLabel = (providerId) => {
-  const selectedProvider = providerOptions.find((option) => option.id === providerId);
+  if (providerId === "ai-search") {
+    return "AI Search Engine (SkillHive KB)";
+  }
+  const selectedProvider = assistantProviderOptions.find((option) => option.id === providerId);
   return selectedProvider ? `${selectedProvider.label} (${selectedProvider.subtitle})` : "Assistant";
 };
 
 const ChatBot = () => {
-  const [messages, setMessages] = useState([getInitialMessage()]);
+  const [sectionMessages, setSectionMessages] = useState({
+    assistant: [getInitialMessage("assistant")],
+    search: [getInitialMessage("search")],
+  });
   const [inputValue, setInputValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
-  const [provider, setProvider] = useState("chatgpt");
+  const [mode, setMode] = useState("assistant");
+  const [assistantProvider, setAssistantProvider] = useState("chatgpt");
+  const [searchQuickIssues, setSearchQuickIssues] = useState(fallbackSearchQuickIssues);
   const messagesEndRef = useRef(null);
 
-  const providerLabel = useMemo(() => getProviderLabel(provider), [provider]);
+  const activeProvider = mode === "search" ? "ai-search" : assistantProvider;
+  const currentMessages = mode === "search" ? sectionMessages.search : sectionMessages.assistant;
+
+  const providerLabel = useMemo(() => getProviderLabel(activeProvider), [activeProvider]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -42,10 +56,48 @@ const ChatBot = () => {
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages]);
+  }, [currentMessages]);
 
-  const sendMessage = async () => {
-    const trimmedMessage = inputValue.trim();
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadChatConfig = async () => {
+      try {
+        const response = await fetch(`${assistantBaseUrl}/chat-config`);
+        if (!response.ok) return;
+        const data = await response.json();
+        if (!isMounted) return;
+
+        if (Array.isArray(data.aiSearchQuickIssues) && data.aiSearchQuickIssues.length > 0) {
+          const normalized = data.aiSearchQuickIssues
+            .filter((item) => item && item.id && item.label && item.prompt)
+            .map((item) => ({ id: item.id, label: item.label, prompt: item.prompt }));
+
+          if (normalized.length > 0) {
+            setSearchQuickIssues(normalized);
+          }
+        }
+      } catch {
+        // Keep fallback issues when config endpoint is unavailable.
+      }
+    };
+
+    loadChatConfig();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const appendMessageToActiveSection = (message) => {
+    setSectionMessages((prev) => ({
+      ...prev,
+      [mode]: [...prev[mode], message],
+    }));
+  };
+
+  const sendMessage = async (overrideMessage) => {
+    const trimmedMessage = (overrideMessage ?? inputValue).trim();
     if (!trimmedMessage) return;
 
     const userMessage = {
@@ -55,7 +107,7 @@ const ChatBot = () => {
       timestamp: new Date(),
     };
 
-    setMessages((prev) => [...prev, userMessage]);
+    appendMessageToActiveSection(userMessage);
     setInputValue("");
     setIsLoading(true);
     setError("");
@@ -68,7 +120,7 @@ const ChatBot = () => {
         },
         body: JSON.stringify({
           message: trimmedMessage,
-          provider,
+          provider: activeProvider,
         }),
       });
 
@@ -84,28 +136,30 @@ const ChatBot = () => {
         text: data.reply,
         timestamp: new Date(),
         flagged: Boolean(data.flagged),
-        provider: data.provider || provider,
+        provider: data.provider || activeProvider,
       };
 
-      setMessages((prev) => [...prev, botMessage]);
+      appendMessageToActiveSection(botMessage);
     } catch (err) {
       console.error("Chatbot error:", err);
 
       const providerText = providerLabel;
       setError(
-        `${providerText} is not responding. Make sure the AI assistant server is running at ${assistantBaseUrl} and the selected provider API key is configured in your environment variables.`
+        mode === "search"
+          ? `${providerText} is not responding. Make sure the AI assistant server is running at ${assistantBaseUrl}.`
+          : `${providerText} is not responding. Make sure the AI assistant server is running at ${assistantBaseUrl} and the selected provider API key is configured in your environment variables.`
       );
 
       const errorMessage = {
         id: Date.now() + 1,
         type: "bot",
         text:
-          "मुझसे कनेक्ट नहीं हो सके। कृपया बाद में कोशिश करें।\n\nUnable to connect. Please try again later. Check that the Python server is running and the selected provider key is configured.",
+          "Unable to connect. Please try again later. Check that the Python server is running and the selected provider key is configured.",
         timestamp: new Date(),
         isError: true,
       };
 
-      setMessages((prev) => [...prev, errorMessage]);
+      appendMessageToActiveSection(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -119,7 +173,10 @@ const ChatBot = () => {
   };
 
   const clearChat = () => {
-    setMessages([getInitialMessage()]);
+    setSectionMessages((prev) => ({
+      ...prev,
+      [mode]: [getInitialMessage(mode)],
+    }));
     setError("");
   };
 
@@ -127,45 +184,80 @@ const ChatBot = () => {
     <section className="mt-6 flex flex-col rounded-xl border border-slate-200 bg-white shadow-sm">
       <div className="flex flex-col gap-4 border-b border-slate-200 px-6 py-4 md:flex-row md:items-center md:justify-between">
         <div>
-          <h3 className="text-lg font-bold text-slate-900">🤖 AI Assistant</h3>
+          <h3 className="text-lg font-bold text-slate-900">🤖 Support AI ChatBot</h3>
           <p className="text-xs text-slate-500">
-            Choose ChatGPT, Codex, Copilot, Gemini, Grok, Perplexity, or Claude. The assistant responds in English or Hindi.
+            Use two sections: AI Assistant (ChatGPT or Gemini) and AI Search Engine (local app support).
           </p>
         </div>
         <button
           onClick={clearChat}
           className="text-xs font-semibold text-slate-600 underline hover:text-slate-900"
         >
-          Clear Chat
+          Clear Current Section
         </button>
       </div>
 
       <div className="border-b border-slate-200 px-6 py-4">
-        <p className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-          Provider
-        </p>
+        <p className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Sections</p>
         <div className="flex flex-wrap gap-2">
-          {providerOptions.map((option) => {
-            const isSelected = provider === option.id;
-            return (
-              <button
-                key={option.id}
-                type="button"
-                onClick={() => setProvider(option.id)}
-                className={`rounded-full border px-3 py-2 text-left transition-colors ${
-                  isSelected
-                    ? "border-blue-600 bg-blue-50 text-blue-800"
-                    : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50"
-                }`}
-              >
-                <span className="block text-sm font-semibold">{option.label}</span>
-                <span className="block text-[11px] uppercase tracking-[0.14em] opacity-70">
-                  {option.subtitle}
-                </span>
-              </button>
-            );
-          })}
+          <button
+            type="button"
+            onClick={() => setMode("assistant")}
+            className={`rounded-full border px-4 py-2 text-sm font-semibold transition-colors ${
+              mode === "assistant"
+                ? "border-blue-600 bg-blue-50 text-blue-800"
+                : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50"
+            }`}
+          >
+            AI Assistant
+          </button>
+          <button
+            type="button"
+            onClick={() => setMode("search")}
+            className={`rounded-full border px-4 py-2 text-sm font-semibold transition-colors ${
+              mode === "search"
+                ? "border-emerald-600 bg-emerald-50 text-emerald-800"
+                : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50"
+            }`}
+          >
+            AI Search Engine
+          </button>
         </div>
+
+        {mode === "assistant" && (
+          <>
+            <p className="mb-3 mt-4 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Provider</p>
+            <div className="flex flex-wrap gap-2">
+              {assistantProviderOptions.map((option) => {
+                const isSelected = assistantProvider === option.id;
+                return (
+                  <button
+                    key={option.id}
+                    type="button"
+                    onClick={() => setAssistantProvider(option.id)}
+                    className={`rounded-full border px-3 py-2 text-left transition-colors ${
+                      isSelected
+                        ? "border-blue-600 bg-blue-50 text-blue-800"
+                        : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50"
+                    }`}
+                  >
+                    <span className="block text-sm font-semibold">{option.label}</span>
+                    <span className="block text-[11px] uppercase tracking-[0.14em] opacity-70">
+                      {option.subtitle}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </>
+        )}
+
+        {mode === "search" && (
+          <div className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-800">
+            AI Search Engine uses only SkillHive knowledge base content to solve app-related issues. No external provider key is required.
+          </div>
+        )}
+
         <p className="mt-3 text-xs text-slate-500">
           Selected: <span className="font-semibold text-slate-700">{providerLabel}</span>
         </p>
@@ -179,7 +271,7 @@ const ChatBot = () => {
         )}
 
         <div className="space-y-4">
-          {messages.map((msg) => (
+          {currentMessages.map((msg) => (
             <div
               key={msg.id}
               className={`flex ${msg.type === "user" ? "justify-end" : "justify-start"}`}
@@ -222,12 +314,31 @@ const ChatBot = () => {
       </div>
 
       <div className="border-t border-slate-200 px-6 py-4">
+        {mode === "search" && (
+          <div className="mb-3 flex flex-wrap gap-2">
+            {searchQuickIssues.map((issue) => (
+              <button
+                key={issue.id}
+                type="button"
+                onClick={() => sendMessage(issue.prompt)}
+                disabled={isLoading}
+                className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-800 transition-colors hover:border-emerald-300 hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {issue.label}
+              </button>
+            ))}
+          </div>
+        )}
         <div className="flex gap-2">
           <textarea
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             onKeyDown={handleKeyPress}
-            placeholder="Ask about attendance, guidelines, tasks, or any SkillHive topic..."
+            placeholder={
+              mode === "search"
+                ? "Describe your app issue (login, profile, feedback, messages, etc.)..."
+                : "Ask about attendance, guidelines, tasks, or any SkillHive topic..."
+            }
             className="flex-1 resize-none rounded-lg border border-slate-300 px-4 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
             rows="2"
             disabled={isLoading}
@@ -241,7 +352,7 @@ const ChatBot = () => {
           </button>
         </div>
         <p className="mt-2 text-xs text-slate-500">
-          💡 Tip: Type 'menu' to see available topics or ask any question directly.
+          💡 Tip: Each section keeps its own chat history. Switch sections anytime without losing previous messages.
         </p>
       </div>
     </section>

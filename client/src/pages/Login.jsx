@@ -69,35 +69,35 @@ const Login = () => {
 
   return (
     <div className="grid w-full gap-6 lg:grid-cols-[1.05fr,0.95fr]">
-      <div className="ui-card-soft hidden min-h-[32rem] flex-col justify-between p-8 text-slate-950 lg:flex">
+      <div className="hidden min-h-[32rem] flex-col justify-between rounded-2xl bg-gradient-to-br from-blue-600 via-blue-700 to-blue-800 p-8 text-white lg:flex shadow-[0_20px_40px_-10px_rgba(37,99,235,0.3)]">
         <div>
-          <div className="inline-flex rounded-full bg-white px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-blue-700 shadow-sm">
+          <div className="inline-flex rounded-full bg-white/20 backdrop-blur-sm px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-white shadow-sm border border-white/30">
             Welcome back
           </div>
-          <h2 className="mt-6 max-w-sm text-4xl font-black tracking-tight">
+          <h2 className="mt-8 max-w-sm text-2xl sm:text-3xl font-black tracking-tight">
             Pick up where you left off.
           </h2>
-          <p className="mt-4 max-w-md text-sm leading-6 text-slate-600">
+          <p className="mt-4 max-w-md text-sm leading-7 text-blue-50">
             Continue conversations, review requests, and keep your mentor network moving.
           </p>
         </div>
 
         <div className="grid gap-3">
-          <div className="rounded-2xl border border-white/80 bg-white p-4 shadow-sm">
-            Access your dashboard and pending requests.
+          <div className="rounded-xl border border-white/20 bg-white/10 backdrop-blur-sm p-4 text-sm font-medium text-white hover:bg-white/15 transition-all duration-200">
+            ✓ Access your dashboard and pending requests
           </div>
-          <div className="rounded-2xl border border-white/80 bg-white p-4 shadow-sm">
-            Explore mentors and keep your profile up to date.
+          <div className="rounded-xl border border-white/20 bg-white/10 backdrop-blur-sm p-4 text-sm font-medium text-white hover:bg-white/15 transition-all duration-200">
+            ✓ Explore mentors and keep your profile up to date
           </div>
-          <div className="rounded-2xl border border-white/80 bg-white p-4 shadow-sm">
-            Stable auth and a clean user experience.
+          <div className="rounded-xl border border-white/20 bg-white/10 backdrop-blur-sm p-4 text-sm font-medium text-white hover:bg-white/15 transition-all duration-200">
+            ✓ Stable auth and a clean user experience
           </div>
         </div>
       </div>
 
-      <div className="ui-card w-full p-8 md:p-10">
-        <div className="mb-6">
-          <h2 className="text-3xl font-black tracking-tight text-slate-950">Welcome Back</h2>
+      <div className="w-full p-8 md:p-10 rounded-2xl bg-white border border-slate-100 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.08)]">
+        <div className="mb-8">
+          <h2 className="text-xl sm:text-2xl font-black tracking-tight bg-gradient-to-r from-blue-950 to-blue-700 bg-clip-text text-transparent">Welcome Back</h2>
           <p className="mt-2 text-sm text-slate-600">Login to continue your SkillHive journey.</p>
         </div>
 
@@ -108,7 +108,7 @@ const Login = () => {
           value={formData.email}
           onChange={handleChange}
           placeholder="Email"
-          className="ui-input"
+          className="w-full px-4 py-3 rounded-lg border border-slate-200 bg-slate-50 text-slate-900 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white focus:border-transparent transition-all duration-200 font-medium text-sm"
           required
         />
 
@@ -118,14 +118,14 @@ const Login = () => {
           value={formData.password}
           onChange={handleChange}
           placeholder="Password"
-          className="ui-input"
+          className="w-full px-4 py-3 rounded-lg border border-slate-200 bg-slate-50 text-slate-900 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white focus:border-transparent transition-all duration-200 font-medium text-sm"
           required
         />
 
         <button
           type="submit"
           disabled={loading || googleLoading}
-          className="ui-btn-primary w-full rounded-full py-3.5"
+          className="w-full px-4 py-3.5 rounded-lg bg-gradient-to-r from-blue-600 to-blue-700 text-white font-semibold text-sm transition-all duration-200 hover:shadow-[0_8px_20px_-4px_rgba(37,99,235,0.4)] active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed"
         >
           {loading ? "Logging in..." : "Login"}
         </button>
@@ -143,15 +143,15 @@ const Login = () => {
         </div>
       ) : null}
 
-      {message && <p className="mt-4 text-sm text-emerald-600">{message}</p>}
-      {error && <p className="mt-4 text-sm text-rose-600">{error}</p>}
+      {message && <div className="mt-4 p-3 rounded-lg bg-emerald-50 text-emerald-700 text-sm font-medium border border-emerald-200">✓ {message}</div>}
+      {error && <div className="mt-4 p-3 rounded-lg bg-red-50 text-red-700 text-sm font-medium border border-red-200">✕ {error}</div>}
 
-      <p className="mt-4 text-center text-sm text-slate-600">
-        <Link to="/forgot-password" className="font-semibold text-blue-700 hover:text-blue-800">Forgot password?</Link>
+      <p className="mt-6 text-center text-sm text-slate-600">
+        <Link to="/forgot-password" className="font-semibold text-blue-600 hover:text-blue-700 transition-colors">Forgot password?</Link>
       </p>
 
       <p className="mt-6 text-center text-sm text-slate-600">
-        New here? <Link to="/register" className="font-semibold text-blue-700 hover:text-blue-800">Create account</Link>
+        New here? <Link to="/register" className="font-semibold text-blue-600 hover:text-blue-700 transition-colors">Create account</Link>
       </p>
       </div>
     </div>

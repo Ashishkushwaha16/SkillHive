@@ -578,7 +578,7 @@ const Messages = () => {
       subtitle="Real-time 1-to-1 chat with your connected users."
     >
       <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
-        <aside className="ui-card-soft p-4">
+        <aside className="rounded-xl border border-slate-100 bg-gradient-to-br from-slate-50 to-white p-4 shadow-sm">
           <h2 className="px-2 py-2 text-sm font-semibold uppercase tracking-[0.18em] text-blue-700">
             Connected Users
           </h2>
@@ -656,7 +656,7 @@ const Messages = () => {
           </div>
         </aside>
 
-        <section className="ui-card p-5">
+        <section className="rounded-xl border border-slate-100 bg-white p-5 shadow-sm">
           {activePeer ? (
             <>
               <div className="border-b border-slate-200 pb-3">
@@ -746,12 +746,12 @@ const Messages = () => {
                     emitTyping();
                   }}
                   placeholder="Type a message"
-                  className="ui-input flex-1"
+                  className="w-full px-4 py-3 rounded-lg border border-slate-200 bg-slate-50 focus:ring-2 focus:ring-blue-500 focus:bg-white outline-none transition-all duration-200 flex-1"
                 />
                 <button
                   type="submit"
                   disabled={!text.trim() || sending}
-                  className="ui-btn-primary rounded-xl px-4"
+                  className="px-6 py-3 rounded-lg bg-gradient-to-r from-blue-600 to-blue-700 text-white font-semibold transition-all duration-200 hover:shadow-[0_4px_12px_-4px_rgba(37,99,235,0.4)] active:scale-95 disabled:opacity-50"
                 >
                   {sending ? "Sending..." : "Send"}
                 </button>
@@ -783,7 +783,7 @@ const Messages = () => {
                   {mentorFeedback.open ? (
                     <form onSubmit={submitMentorFeedback} className="mt-3 space-y-2">
                       <select
-                        className="ui-input"
+                        className="w-full px-4 py-3 rounded-lg border border-slate-200 bg-slate-50 focus:ring-2 focus:ring-blue-500 focus:bg-white outline-none transition-all duration-200"
                         value={mentorFeedback.rating}
                         onChange={(event) =>
                           setMentorFeedback((prev) => ({ ...prev, rating: event.target.value }))

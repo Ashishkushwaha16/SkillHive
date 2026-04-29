@@ -30,7 +30,7 @@ const ForgotPassword = () => {
 
   return (
     <div className="ui-card w-full max-w-xl p-8 md:p-10">
-      <h2 className="text-3xl font-black tracking-tight text-slate-950">Forgot Password</h2>
+      <h2 className="text-xl sm:text-2xl font-black tracking-tight text-slate-950">Forgot Password</h2>
       <p className="mt-2 text-sm text-slate-600">
         Enter your account email. We will send you a password reset link.
       </p>

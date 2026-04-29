@@ -1,0 +1,154 @@
+\documentclass[conference]{IEEEtran}
+\IEEEoverridecommandlockouts
+
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{cite}
+\usepackage{url}
+\usepackage{amsmath,amssymb}
+\usepackage{graphicx}
+
+\title{SkillHive: A Full-Stack Skill Exchange Platform with Real-Time Collaboration and AI-Assisted Support}
+
+\author{\IEEEauthorblockN{Ashish Kushwaha}
+\IEEEauthorblockA{Department of Computer Science and Engineering \\
+[Institute Name], [City], India \\
+Email: [author-email@example.com]}}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+SkillHive is a full-stack collaboration platform developed to unify skill discovery, real-time communication, and support workflows in a single system. The platform integrates a React frontend, Node.js and Express backend, MongoDB persistence layer, and a Python-based AI service. In many learning ecosystems, user onboarding, messaging, and support are distributed across disconnected tools, resulting in operational friction and inconsistent user experience. SkillHive addresses this problem by combining role-based authentication, profile and skill management, Socket.io-based messaging, structured feedback submission, and AI-assisted support. The AI layer is designed with two operational modes: provider-backed conversational assistance and retrieval-based local AI Search over a knowledge base. This dual design enables graceful degradation when external AI APIs are unavailable due to quota or access constraints. This paper presents the system motivation, architecture, implementation methodology, and validation evidence from runtime and build-level checks.
+\end{abstract}
+
+\begin{IEEEkeywords}
+Full-stack architecture, collaboration platform, JWT authentication, role-based access control, real-time messaging, AI assistant, retrieval-based support, FAISS, Flask.
+\end{IEEEkeywords}
+
+\section{Introduction}
+Digital collaboration platforms for students and internship communities frequently depend on multiple disconnected applications for user profiles, communication, and support. This fragmentation increases cognitive load for users and management overhead for administrators. A unified platform design can improve both usability and maintainability by centralizing these workflows.
+
+SkillHive was designed and implemented as an integrated system that combines conventional web application modules with AI-assisted support features. The project focuses on practical reliability rather than isolated feature demonstration. In particular, the AI subsystem was engineered to remain operational through a retrieval-first mode even when external model-provider access is constrained.
+
+Furthermore, the increasing demand for collaborative digital environments highlights the importance of systems that combine multiple functionalities into a single platform. SkillHive is designed to meet these evolving requirements by providing a scalable and extensible solution.
+
+\section{Problem Statement}
+The following limitations are commonly observed in fragmented collaboration environments:
+\begin{enumerate}
+\item Profile and peer-discovery features are not tightly coupled.
+\item Communication systems do not consistently support real-time interactions.
+\item Feedback and support channels are often unstructured and difficult to track.
+\item AI support can fail abruptly when external model APIs are unavailable.
+\end{enumerate}
+
+SkillHive targets these issues through a single platform architecture with modular service boundaries. These challenges not only affect user productivity but also increase system complexity and maintenance overhead. A unified architecture is required to streamline these operations and provide a seamless user experience.
+
+\section{Objectives and Contributions}
+The main objectives of this work are:
+\begin{enumerate}
+\item To build a secure full-stack platform with role-based access control.
+\item To provide real-time user communication and notification flows.
+\item To implement structured support and product-feedback workflows.
+\item To integrate AI-assisted guidance with safe fallback behavior.
+\end{enumerate}
+
+The key contributions are:
+\begin{enumerate}
+\item A practical integration architecture combining web, real-time, and AI service layers.
+\item A retrieval-based AI Search path that functions independently of external LLM quota.
+\item A robust user-facing error-sanitization strategy for provider failures.
+\end{enumerate}
+
+\section{System Architecture}
+SkillHive follows a four-layer architecture:
+\begin{enumerate}
+\item \textbf{Client Layer (React):} UI rendering, route management, form handling, and socket interaction.
+\item \textbf{Application Layer (Node.js/Express):} REST APIs for authentication, users, messages, notifications, posts, and feedback.
+\item \textbf{AI Service Layer (Python/Flask):} conversational assistant and retrieval-based AI Search endpoints.
+\item \textbf{Data Layer (MongoDB):} persistent storage for users, messages, feedback, notifications, and related records.
+\end{enumerate}
+
+This layered design improves maintainability and enables independent iteration of the AI subsystem. The modular separation between the application layer and AI service layer enables independent scaling and maintenance. This design ensures that updates to AI components do not disrupt core application functionality.
+
+\section{Methodology and Implementation}
+The system was developed using an incremental implementation strategy focused on modular delivery, frequent integration, and continuous verification of major user journeys. Agile development practices were followed, allowing iterative improvements and continuous feedback integration. This approach ensured flexibility in handling changing requirements.
+
+\subsection{Authentication and Authorization}
+SkillHive uses JWT-based session handling for secure route access and role-aware authorization for user and admin operations. The authentication module supports both local credentials and Google-based login flows.
+
+\subsection{Real-Time Communication}
+Socket.io is used to implement low-latency message exchange between users, enabling interactive communication without page reloads.
+
+\subsection{Feedback and Support Pipeline}
+The platform provides a contact and product-feedback module with input validation and persistent storage, followed by an admin-side review flow.
+
+\subsection{AI Assistant and AI Search}
+The AI support subsystem includes provider-backed assistant mode for conversational responses and retrieval-based AI Search mode over platform knowledge documents. The retrieval mode ensures continuity during external provider limitations.
+
+\section{AI Search Design}
+The AI Search module uses sentence embeddings and FAISS similarity search to retrieve relevant content chunks from a curated knowledge base. Responses are generated from retrieved evidence rather than unconstrained generation, reducing hallucination risk and improving response grounding.
+
+This retrieval-first strategy is particularly useful in educational and support contexts where factual consistency is more important than open-ended generation. The embedding-based similarity search ensures that semantically relevant results are retrieved even when exact keyword matches are not present. This significantly improves the accuracy and usefulness of responses compared to traditional keyword-based search systems.
+
+\section{Validation and Results}
+Validation was performed through real runtime and build-level checks:
+\begin{enumerate}
+\item Backend health endpoint verification.
+\item AI service health and configuration endpoint verification.
+\item Retrieval-based AI Search response verification.
+\item End-to-end feedback submission and persistence verification.
+\item Frontend production build verification.
+\item Python syntax validation.
+\end{enumerate}
+
+These results confirm that major user journeys are operational in the integrated deployment. The system also demonstrated consistent behavior under repeated test conditions, indicating stability. The modular architecture contributed to easier debugging and maintenance during testing phases.
+
+\section{Discussion}
+The implementation demonstrates that AI in full-stack platforms should be treated as a resilient support layer rather than a single dependency path. The inclusion of retrieval-based local support provides reliability and predictable behavior, especially in demonstration or low-budget environments where external quota access can be unstable.
+
+The project also highlights that architecture-level decisions, such as service separation and safe fallback handling, significantly improve practical usability. The hybrid AI approach adopted in this system highlights the importance of fallback mechanisms in modern applications. Systems that rely solely on external AI services may fail under constraints, whereas hybrid systems provide resilience.
+
+\section{Limitations}
+Current limitations include:
+\begin{enumerate}
+\item External provider-backed AI behavior remains dependent on API quota and billing.
+\item Knowledge-base scope is limited and can be expanded.
+\item Support analytics depth can be improved.
+\item Deployment and observability hardening can be further extended.
+\end{enumerate}
+
+\section{Conclusion and Future Work}
+SkillHive presents a complete major-project-scale implementation that integrates authentication, profile workflows, real-time communication, feedback handling, and AI-assisted support in one coherent platform. The architecture is modular, validated, and extensible for future enhancement.
+
+Future work includes expanded knowledge retrieval coverage, richer analytics, feedback lifecycle tracking, and advanced AI evaluation for response quality.
+
+\section{Performance Considerations}
+The performance of the SkillHive system depends on multiple factors including backend response time, database query efficiency, and real-time communication latency. The use of Node.js ensures non-blocking I/O operations, enabling the system to handle multiple concurrent users efficiently.
+
+MongoDB provides flexible schema design and efficient query handling for user data, messages, and feedback. Indexing strategies can be further optimized to improve search and retrieval speed. Socket.io ensures low-latency communication, making real-time chat responsive and efficient.
+
+The AI subsystem introduces additional computational overhead; however, the retrieval-based approach reduces dependency on external API calls and improves response time consistency. Overall, the system demonstrates acceptable performance for academic-scale deployment.
+
+\section{Security Considerations}
+Security is a critical aspect of the SkillHive platform. The system implements JWT-based authentication to ensure secure access to protected routes. Passwords are securely stored using hashing techniques, preventing unauthorized access.
+
+Role-based access control ensures that administrative functionalities are restricted to authorized users only. Input validation is implemented across forms to prevent injection attacks and invalid data submission.
+
+Future improvements can include rate limiting, advanced encryption mechanisms, and enhanced monitoring to further strengthen the security of the platform.
+
+\begin{thebibliography}{11}
+\bibitem{react} React Documentation. [Online]. Available: \url{https://react.dev}
+\bibitem{node} Node.js Documentation. [Online]. Available: \url{https://nodejs.org/docs/latest/api}
+\bibitem{express} Express.js Documentation. [Online]. Available: \url{https://expressjs.com}
+\bibitem{mongodb} MongoDB Documentation. [Online]. Available: \url{https://www.mongodb.com/docs}
+\bibitem{mongoose} Mongoose Documentation. [Online]. Available: \url{https://mongoosejs.com/docs}
+\bibitem{socket} Socket.io Documentation. [Online]. Available: \url{https://socket.io/docs/v4}
+\bibitem{flask} Flask Documentation. [Online]. Available: \url{https://flask.palletsprojects.com}
+\bibitem{sbert} SentenceTransformers Documentation. [Online]. Available: \url{https://www.sbert.net}
+\bibitem{faiss} FAISS Documentation. [Online]. Available: \url{https://faiss.ai}
+\bibitem{openai} OpenAI API Documentation. [Online]. Available: \url{https://platform.openai.com/docs}
+\bibitem{gemini} Google Gemini API Documentation. [Online]. Available: \url{https://ai.google.dev/gemini-api/docs}
+\end{thebibliography}
+
+\end{document}

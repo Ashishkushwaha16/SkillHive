@@ -111,7 +111,7 @@ const Contact = () => {
   return (
     <PageLayout title="Contact Us" subtitle="We'd love to hear from you. Send us a message!">
       <div className="grid gap-6 lg:grid-cols-[1.15fr,0.85fr]">
-        <div className="ui-card p-8 md:p-10 rounded-2xl bg-white border border-slate-100 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.08)]">
+        <div className="rounded-3xl border border-slate-100 bg-gradient-to-br from-white via-slate-50/70 to-white p-8 md:p-10 shadow-[0_16px_50px_-24px_rgba(15,23,42,0.22)] backdrop-blur">
           <div className="mb-6 inline-flex rounded-full border border-blue-200 bg-blue-50 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-blue-700 shadow-sm">
             Support channel
           </div>

@@ -28,12 +28,12 @@ const SkillSearch = ({
   return (
     <section className="space-y-4">
       {/* Compact Top Bar */}
-      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="rounded-2xl border border-slate-100 bg-gradient-to-br from-white via-slate-50/80 to-blue-50 p-4 shadow-sm">
         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-700">Skill search</p>
         <button
           type="button"
           onClick={() => setIsExpanded((prev) => !prev)}
-          className="mt-2 flex w-full items-center justify-between gap-2 rounded-xl border border-slate-300 bg-slate-50 px-3 py-3 text-left text-sm font-semibold text-slate-700 transition-colors hover:border-blue-300 hover:bg-blue-50"
+          className="mt-2 flex w-full items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white px-3 py-3 text-left text-sm font-semibold text-slate-700 shadow-sm transition-all duration-200 hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700"
           aria-expanded={isExpanded}
           aria-label={isExpanded ? "Hide filters" : "Open filters"}
         >
@@ -56,23 +56,23 @@ const SkillSearch = ({
 
       {/* Stats Row */}
       <div className="grid gap-3 sm:grid-cols-3">
-        <div className="rounded-xl border border-white/80 bg-white p-3 shadow-sm sm:p-4">
+        <div className="rounded-xl border border-blue-200 bg-gradient-to-br from-blue-50 to-white p-3 shadow-sm sm:p-4">
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Connected</p>
-          <p className="mt-2 text-xl font-black text-slate-950 sm:text-2xl">{connectedCount}</p>
+          <p className="mt-2 text-xl font-black text-blue-900 sm:text-2xl">{connectedCount}</p>
         </div>
-        <div className="rounded-xl border border-white/80 bg-white p-3 shadow-sm sm:p-4">
+        <div className="rounded-xl border border-amber-200 bg-gradient-to-br from-amber-50 to-white p-3 shadow-sm sm:p-4">
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Pending</p>
-          <p className="mt-2 text-xl font-black text-slate-950 sm:text-2xl">{pendingCount}</p>
+          <p className="mt-2 text-xl font-black text-amber-900 sm:text-2xl">{pendingCount}</p>
         </div>
-        <div className="rounded-xl border border-white/80 bg-white p-3 shadow-sm sm:p-4">
+        <div className="rounded-xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-white p-3 shadow-sm sm:p-4">
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Results</p>
-          <p className="mt-2 text-xl font-black text-slate-950 sm:text-2xl">{resultsCount}</p>
+          <p className="mt-2 text-xl font-black text-emerald-900 sm:text-2xl">{resultsCount}</p>
         </div>
       </div>
 
       {/* Expanded Search Panel */}
       {isExpanded && (
-        <form onSubmit={onSearch} className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
+        <form onSubmit={onSearch} className="space-y-4 rounded-2xl border border-slate-100 bg-white/95 p-4 shadow-[0_12px_34px_-20px_rgba(15,23,42,0.28)] sm:p-6">
           {/* Search Input */}
           <input
             type="text"

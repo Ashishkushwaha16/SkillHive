@@ -758,12 +758,20 @@ const Messages = () => {
               </form>
 
               {activePeer ? (
-                <section className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <section className="mt-4 rounded-2xl border border-slate-100 bg-gradient-to-br from-white via-slate-50 to-blue-50 p-4 shadow-sm">
                   <div className="flex items-center justify-between gap-3">
-                    <h4 className="text-sm font-semibold uppercase tracking-[0.14em] text-slate-700">Mentor Feedback</h4>
+                    <div className="inline-flex items-center gap-2 rounded-full border border-blue-200 bg-white px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-blue-700 shadow-sm">
+                      <span className="flex h-5 w-5 items-center justify-center rounded-full bg-gradient-to-r from-blue-600 to-emerald-600 text-white">
+                        <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 20h9" />
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4 11.5-11.5Z" />
+                        </svg>
+                      </span>
+                      Mentor Feedback
+                    </div>
                     <button
                       type="button"
-                      className="rounded-lg border border-slate-300 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-100"
+                      className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm transition-all duration-200 hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700"
                       onClick={() => setMentorFeedback((prev) => ({ ...prev, open: !prev.open, result: null }))}
                     >
                       {mentorFeedback.open ? "Hide" : "Rate Mentor"}
@@ -781,9 +789,9 @@ const Messages = () => {
                   ) : null}
 
                   {mentorFeedback.open ? (
-                    <form onSubmit={submitMentorFeedback} className="mt-3 space-y-2">
+                    <form onSubmit={submitMentorFeedback} className="mt-3 space-y-2 rounded-2xl border border-slate-100 bg-white p-3 shadow-sm">
                       <select
-                        className="w-full px-4 py-3 rounded-lg border border-slate-200 bg-slate-50 focus:ring-2 focus:ring-blue-500 focus:bg-white outline-none transition-all duration-200"
+                        className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none transition-all duration-200 focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-100"
                         value={mentorFeedback.rating}
                         onChange={(event) =>
                           setMentorFeedback((prev) => ({ ...prev, rating: event.target.value }))
@@ -806,7 +814,7 @@ const Messages = () => {
                           setMentorFeedback((prev) => ({ ...prev, comment: event.target.value }))
                         }
                       />
-                      <button type="submit" className="ui-btn-secondary" disabled={mentorFeedback.submitting}>
+                      <button type="submit" className="ui-btn-primary w-full" disabled={mentorFeedback.submitting}>
                         {mentorFeedback.submitting ? "Submitting..." : "Submit Mentor Feedback"}
                       </button>
                     </form>
@@ -821,7 +829,14 @@ const Messages = () => {
       </div>
 
       <section className="ui-card mt-6 p-5">
-        <h3 className="text-sm font-semibold uppercase tracking-[0.14em] text-slate-600">Recent Calls</h3>
+        <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-slate-700 shadow-sm">
+          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-gradient-to-r from-slate-900 to-blue-900 text-white">
+            <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M22 16.92v2a2 2 0 0 1-2.18 2A19.8 19.8 0 0 1 3.08 4.18 2 2 0 0 1 5.08 2h2a2 2 0 0 1 2 1.72c.12.94.34 1.86.66 2.74a2 2 0 0 1-.45 2.11L8.1 9.76a16 16 0 0 0 6.14 6.14l1.19-1.19a2 2 0 0 1 2.11-.45c.88.32 1.8.54 2.74.66A2 2 0 0 1 22 16.92Z" />
+            </svg>
+          </span>
+          Recent Calls
+        </div>
         {!callHistory.length ? (
           <p className="mt-3 text-sm text-slate-500">No call history yet.</p>
         ) : (
@@ -831,12 +846,12 @@ const Messages = () => {
               const isOutgoing = log?.caller?._id === myId;
               const peer = isOutgoing ? log.callee : log.caller;
               return (
-                <div key={log._id} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+                <div key={log._id} className="rounded-2xl border border-slate-100 bg-gradient-to-r from-white to-slate-50 px-3 py-2 shadow-sm">
                   <div className="flex items-center justify-between gap-3">
                     <p className="text-sm font-semibold text-slate-800">
                       {isOutgoing ? "Outgoing" : "Incoming"} {log.mode} call {peer?.name ? `with ${peer.name}` : ""}
                     </p>
-                    <span className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">{log.status}</span>
+                    <span className="rounded-full bg-slate-900 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-white">{log.status}</span>
                   </div>
                   <p className="mt-1 text-xs text-slate-500">
                     {new Date(log.createdAt).toLocaleString()} {log.durationSec ? `- ${log.durationSec}s` : ""}
@@ -856,8 +871,8 @@ const Messages = () => {
 
       {callModal.isOpen ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4">
-          <div className="flex h-[88vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
-            <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+          <div className="flex h-[88vh] w-full max-w-6xl flex-col overflow-hidden rounded-3xl border border-slate-100 bg-white shadow-[0_24px_80px_-24px_rgba(15,23,42,0.45)]">
+            <div className="flex items-center justify-between border-b border-slate-100 bg-gradient-to-r from-blue-50 to-white px-4 py-3">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">In-app call</p>
                 <h3 className="text-base font-bold text-slate-900">

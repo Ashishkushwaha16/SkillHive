@@ -13,6 +13,36 @@ const MAX_ABOUT_LENGTH = 200;
 
 const normalizeSkill = (value) => value.trim().toLowerCase();
 
+const getProfileCompletion = (profile = {}) => {
+  const checks = [
+    {
+      done: Boolean(profile?.avatar?.url),
+      label: "Profile photo",
+    },
+    {
+      done: Boolean((profile?.about || "").trim().length >= 30),
+      label: "About section",
+    },
+    {
+      done: Array.isArray(profile?.skills) && profile.skills.length >= 3,
+      label: "3+ skills",
+    },
+    {
+      done: Boolean(profile?.resume?.url),
+      label: "Resume upload",
+    },
+    {
+      done: Array.isArray(profile?.achievements) && profile.achievements.length >= 1,
+      label: "Achievement",
+    },
+  ];
+
+  const completed = checks.filter((item) => item.done).length;
+  const percent = Math.round((completed / checks.length) * 100);
+
+  return { checks, percent, completed, total: checks.length };
+};
+
 const Profile = () => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -225,6 +255,7 @@ const Profile = () => {
   }
 
   const avatarLetter = (user?.name || "U").slice(0, 1).toUpperCase();
+  const completion = getProfileCompletion(user);
 
   return (
     <PageLayout
@@ -291,17 +322,40 @@ const Profile = () => {
           </div>
 
           <div className="mt-5 grid gap-3 sm:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3">
-            <div className="rounded-2xl border border-white/80 bg-white p-4">
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Rating</p>
-              <p className="mt-2 text-2xl font-black text-slate-950">{user?.rating ?? 0}</p>
+            <div className="sm:col-span-3 lg:col-span-1 xl:col-span-3 rounded-2xl border border-blue-200 bg-gradient-to-r from-blue-50 to-white p-4">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-blue-700">Profile completion</p>
+                <p className="text-lg font-black text-blue-900">{completion.percent}%</p>
+              </div>
+              <div className="mt-3 h-2.5 overflow-hidden rounded-full bg-blue-100">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-blue-600 to-emerald-600 transition-all duration-300"
+                  style={{ width: `${completion.percent}%` }}
+                />
+              </div>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {completion.checks.map((item) => (
+                  <span
+                    key={item.label}
+                    className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${item.done ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-600"}`}
+                  >
+                    {item.done ? "✓" : "•"} {item.label}
+                  </span>
+                ))}
+              </div>
             </div>
-            <div className="rounded-2xl border border-white/80 bg-white p-4">
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Connections</p>
-              <p className="mt-2 text-2xl font-black text-slate-950">{user?.connections?.length || 0}</p>
+
+            <div className="rounded-2xl border border-amber-200 bg-gradient-to-br from-amber-50 to-orange-50 p-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-amber-700">Rating</p>
+              <p className="mt-2 text-2xl font-black text-amber-900">{user?.rating ?? 0}</p>
             </div>
-            <div className="rounded-2xl border border-white/80 bg-white p-4">
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Certificates</p>
-              <p className="mt-2 text-2xl font-black text-slate-950">{user?.certificates?.length || 0}</p>
+            <div className="rounded-2xl border border-blue-200 bg-gradient-to-br from-blue-50 to-sky-50 p-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-blue-700">Connections</p>
+              <p className="mt-2 text-2xl font-black text-blue-900">{user?.connections?.length || 0}</p>
+            </div>
+            <div className="rounded-2xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-teal-50 p-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-700">Certificates</p>
+              <p className="mt-2 text-2xl font-black text-emerald-900">{user?.certificates?.length || 0}</p>
             </div>
           </div>
 

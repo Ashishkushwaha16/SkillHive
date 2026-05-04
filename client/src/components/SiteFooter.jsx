@@ -12,7 +12,7 @@ const footerLinks = [
 
 const SiteFooter = () => {
   return (
-    <footer className="mt-16 sm:mt-20 border-t border-slate-200 bg-gradient-to-b from-slate-900 via-slate-950 to-slate-950 text-slate-300 shadow-2xl">
+    <footer className="mt-16 sm:mt-20 border-t border-slate-200 bg-gradient-to-b from-slate-900 via-slate-950 to-black text-slate-300 shadow-[0_-20px_60px_-30px_rgba(15,23,42,0.85)]">
       <div className="mx-auto w-full max-w-6xl px-4 sm:px-6 py-12 sm:py-16 md:py-20">
         <div className="grid gap-8 sm:gap-12 md:grid-cols-[1.3fr,1fr]">
           <div>
@@ -29,12 +29,12 @@ const SiteFooter = () => {
           </div>
 
           <div>
-            <div className="grid grid-cols-2 gap-3 sm:gap-4 text-xs sm:text-sm">
+            <div className="grid grid-cols-1 gap-3 text-xs sm:grid-cols-2 sm:gap-4 sm:text-sm">
               {footerLinks.map((item) => (
                 <Link
                   key={item.label}
                   to={item.to}
-                  className="rounded-lg border border-white/10 bg-white/5 backdrop-blur-sm px-3 sm:px-4 py-2.5 sm:py-3 text-slate-300 transition-all duration-200 hover:border-blue-400/50 hover:bg-blue-500/10 hover:text-blue-300 text-center sm:text-left font-medium shadow-sm hover:shadow-md"
+                  className="rounded-xl border border-white/10 bg-white/5 backdrop-blur-sm px-3 sm:px-4 py-2.5 sm:py-3 text-slate-300 transition-all duration-200 hover:-translate-y-0.5 hover:border-blue-400/50 hover:bg-blue-500/10 hover:text-blue-300 text-center sm:text-left font-medium shadow-sm hover:shadow-md"
                 >
                   {item.label}
                 </Link>

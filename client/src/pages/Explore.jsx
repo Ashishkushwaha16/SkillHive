@@ -242,30 +242,62 @@ const Explore = () => {
           </p>
         )}
 
-        {loading && <p className="text-slate-600">Loading users...</p>}
+        {loading ? (
+          <div className="grid gap-4 sm:gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+            {[0, 1, 2, 3, 4, 5].map((item) => (
+              <div key={item} className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1 space-y-2">
+                    <div className="ui-skeleton h-5 w-24 rounded-full" />
+                    <div className="ui-skeleton h-4 w-36" />
+                    <div className="ui-skeleton h-3 w-44" />
+                  </div>
+                  <div className="ui-skeleton h-12 w-14 rounded-2xl" />
+                </div>
+                <div className="mt-4 ui-skeleton h-3 w-full" />
+                <div className="mt-2 ui-skeleton h-3 w-5/6" />
+                <div className="mt-4 flex gap-2">
+                  <div className="ui-skeleton h-6 w-16 rounded-full" />
+                  <div className="ui-skeleton h-6 w-20 rounded-full" />
+                </div>
+                <div className="mt-4 ui-skeleton h-10 w-full rounded-xl" />
+              </div>
+            ))}
+          </div>
+        ) : null}
         {error && <p className="text-rose-600">{error}</p>}
 
         {!loading && !error && (
           <div className="grid gap-4 sm:gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
             {users.length > 0 ? (
               users.map((user) => (
-                <article key={user._id} className="ui-card-soft p-4 sm:p-6 transition-all duration-200 hover:-translate-y-1 hover:shadow-[0_28px_80px_-30px_rgba(37,99,235,0.38)]">
+                <article key={user._id} className="animate-fade-up rounded-2xl border border-slate-100 bg-gradient-to-br from-white via-slate-50 to-blue-50 p-6 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:border-blue-300 hover:shadow-[0_18px_40px_-22px_rgba(37,99,235,0.3)]">
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex-1 min-w-0">
-                      <div className="inline-flex rounded-full border border-blue-100 bg-white px-3 py-1 text-[10px] sm:text-[11px] font-semibold uppercase tracking-[0.18em] text-blue-700">
+                      <div className="inline-flex items-center gap-2 rounded-full border border-blue-100 bg-white px-3 py-1 text-[10px] sm:text-[11px] font-semibold uppercase tracking-[0.18em] text-blue-700">
+                        <span className="flex h-4 w-4 items-center justify-center rounded-full bg-gradient-to-r from-blue-600 to-emerald-600 text-white">
+                          <svg className="h-2.5 w-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                          </svg>
+                        </span>
                         Mentor
                       </div>
                       <h3 className="mt-2 text-lg sm:text-xl font-extrabold text-slate-950 truncate">{user.name}</h3>
                       <p className="text-xs sm:text-sm text-slate-600 truncate">{user.email}</p>
                     </div>
-                    <div className="rounded-lg sm:rounded-2xl bg-slate-950 px-2 sm:px-3 py-2 text-right text-white flex-shrink-0">
+                    <div className="rounded-lg sm:rounded-2xl bg-gradient-to-br from-slate-950 to-blue-950 px-2 sm:px-3 py-2 text-right text-white flex-shrink-0 shadow-sm">
                       <p className="text-lg sm:text-2xl font-black leading-none">{(user.rating ?? 0).toFixed(1)}</p>
                       <p className="text-[9px] sm:text-[11px] uppercase tracking-[0.14em] text-slate-300">Rating</p>
                     </div>
                   </div>
 
                   {typeof user.matchScore === "number" ? (
-                    <div className="mt-3 inline-flex rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-emerald-700">
+                    <div className="mt-3 inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-emerald-700">
+                      <span className="flex h-4 w-4 items-center justify-center rounded-full bg-white text-emerald-700 shadow-sm">
+                        <svg className="h-2.5 w-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 12.5 9 16.5 19 6.5" />
+                        </svg>
+                      </span>
                       Match {user.matchScore}%
                     </div>
                   ) : null}
@@ -316,13 +348,13 @@ const Explore = () => {
                   <button
                     type="button"
                     onClick={() => handleToggleReviews(user._id)}
-                    className="mt-2 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                    className="mt-2 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm transition-all duration-200 hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700"
                   >
                     {expandedReviewsUserId === user._id.toString() ? "Hide Feedback" : "View Feedback"}
                   </button>
 
                   {expandedReviewsUserId === user._id.toString() ? (
-                    <div className="mt-3 rounded-lg border border-slate-200 bg-white p-3">
+                    <div className="mt-3 rounded-2xl border border-slate-100 bg-white p-3 shadow-sm">
                       <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
                         Public mentor feedback
                       </p>
@@ -331,7 +363,7 @@ const Explore = () => {
                       ) : (reviewsByUser[user._id] || []).length ? (
                         <div className="mt-2 space-y-2">
                           {(reviewsByUser[user._id] || []).slice(0, 3).map((review) => (
-                            <article key={review._id} className="rounded-xl bg-slate-50 p-3">
+                            <article key={review._id} className="rounded-xl border border-slate-100 bg-gradient-to-br from-slate-50 to-white p-3">
                               <div className="flex items-center justify-between gap-2">
                                 <p className="text-sm font-semibold text-slate-900">
                                   {(review.reviewer?.name || "User")}
@@ -355,7 +387,7 @@ const Explore = () => {
                   ) : null}
 
                     {statusByUser[user._id] === "connected" ? (
-                      <div className="mt-3 rounded-lg sm:rounded-2xl border border-slate-200 bg-white p-2.5 sm:p-3">
+                      <div className="mt-3 rounded-lg sm:rounded-2xl border border-slate-100 bg-gradient-to-br from-white to-slate-50 p-2.5 sm:p-3 shadow-sm">
                         <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Rate</p>
                         <div className="mt-2 flex flex-col sm:flex-row flex-wrap items-center gap-2">
                           <select
@@ -366,7 +398,7 @@ const Explore = () => {
                                 [user._id]: e.target.value,
                               }))
                             }
-                            className="w-full sm:flex-1 rounded-lg border border-slate-300 bg-white px-2.5 py-2 text-xs sm:text-sm font-semibold text-slate-700"
+                            className="w-full sm:flex-1 rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs sm:text-sm font-semibold text-slate-700 shadow-sm"
                           >
                             <option value="">Select</option>
                             <option value="1">1</option>

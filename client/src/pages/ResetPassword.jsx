@@ -42,8 +42,11 @@ const ResetPassword = () => {
   };
 
   return (
-    <div className="ui-card w-full max-w-xl p-8 md:p-10">
-      <h2 className="text-3xl font-black tracking-tight text-slate-950">Reset Password</h2>
+    <div className="w-full max-w-xl rounded-3xl border border-slate-100 bg-white/90 p-6 shadow-[0_16px_50px_-24px_rgba(15,23,42,0.22)] backdrop-blur sm:p-8 md:p-10">
+      <div className="inline-flex rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-700">
+        New password
+      </div>
+      <h2 className="mt-3 text-xl font-black tracking-tight bg-gradient-to-r from-emerald-950 to-emerald-700 bg-clip-text text-transparent sm:text-2xl">Reset Password</h2>
       <p className="mt-2 text-sm text-slate-600">
         Set a new password for your account.
       </p>
@@ -72,7 +75,7 @@ const ResetPassword = () => {
         <button
           type="submit"
           disabled={loading}
-          className="ui-btn-primary w-full rounded-full py-3.5"
+          className="ui-btn-primary w-full rounded-xl py-3.5"
         >
           {loading ? "Updating..." : "Update Password"}
         </button>

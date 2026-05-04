@@ -1,29 +1,6 @@
 const fs = require("fs/promises");
 const path = require("path");
 
-const DEFAULT_AI_SEARCH_QUICK_ISSUES = [
-  {
-    id: "login",
-    label: "Login Issue",
-    prompt: "I cannot login to SkillHive. What should I check first?",
-  },
-  {
-    id: "messages",
-    label: "Message Issue",
-    prompt: "Messages are not appearing correctly in SkillHive. How can I fix this?",
-  },
-  {
-    id: "feedback",
-    label: "Feedback Flow",
-    prompt: "How do I submit product feedback and where can admin see it?",
-  },
-  {
-    id: "profile",
-    label: "Profile Update",
-    prompt: "My profile skills are not updating. What troubleshooting steps should I follow?",
-  },
-];
-
 const repoRoot = path.resolve(__dirname, "..", "..");
 
 const getConfigPath = () => {
@@ -76,13 +53,12 @@ const readQuickIssuesFromDisk = async () => {
   try {
     const raw = await fs.readFile(filePath, "utf-8");
     const parsed = JSON.parse(raw);
-    const sanitized = sanitizeIssues(parsed);
-    return sanitized.length ? sanitized : DEFAULT_AI_SEARCH_QUICK_ISSUES;
+    return sanitizeIssues(parsed);
   } catch (error) {
     if (error.code !== "ENOENT") {
       console.error("Failed to read AI search quick issue config:", error.message);
     }
-    return DEFAULT_AI_SEARCH_QUICK_ISSUES;
+    return [];
   }
 };
 

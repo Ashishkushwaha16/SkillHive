@@ -34,7 +34,15 @@ export const requestJson = async (
   }
 
   if (!response.ok) {
-    const message = result.message || result.error || `Request failed (${response.status})`;
+    let message = result.message || result.error || `Request failed (${response.status})`;
+
+    // If there are specific field validation errors, format them
+    if (result.errors && Array.isArray(result.errors) && result.errors.length > 0) {
+      const fieldErrors = result.errors
+        .map((err) => `${err.field}: ${err.message}`)
+        .join(", ");
+      message = fieldErrors;
+    }
 
     if (handleUnauthorized && shouldHandleUnauthorized(response.status, message)) {
       clearAuthSession();

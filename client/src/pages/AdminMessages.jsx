@@ -152,7 +152,7 @@ const AdminMessages = () => {
       title="Admin Contact Inbox"
       subtitle="Messages submitted through the public contact form."
     >
-      <div className="ui-card p-6">
+      <div className="rounded-3xl border border-slate-100 bg-white/90 p-6 shadow-[0_16px_50px_-24px_rgba(15,23,42,0.22)] backdrop-blur">
         {loading ? <p className="text-slate-600">Loading messages...</p> : null}
         {error ? <p className="text-red-600">{error}</p> : null}
 

@@ -76,8 +76,15 @@ const Notifications = () => {
 
   return (
     <PageLayout title="Notifications" subtitle="Track real-time platform events in one place.">
-      <div className="mb-4 flex items-center justify-between gap-3">
-        <p className="text-sm font-semibold text-slate-700">Unread: {unreadCount}</p>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-100 bg-white/80 px-4 py-3 shadow-sm backdrop-blur">
+        <div className="flex items-center gap-2">
+          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-r from-blue-600 to-emerald-600 text-white shadow-sm">
+            <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.4-1.4A2 2 0 0 1 18 14.17V11a6 6 0 1 0-12 0v3.17c0 .53-.21 1.04-.59 1.41L4 17h5" />
+            </svg>
+          </span>
+          <p className="text-sm font-semibold text-slate-700">Unread: {unreadCount}</p>
+        </div>
         <button type="button" onClick={handleReadAll} className="ui-btn-secondary">
           Mark all as read
         </button>
@@ -90,13 +97,20 @@ const Notifications = () => {
         {notifications.map((note) => (
           <article
             key={note._id}
-            className={`rounded-2xl border p-4 ${
-              note.isRead ? "border-slate-200 bg-white" : "border-blue-200 bg-blue-50"
+            className={`rounded-3xl border p-4 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_14px_28px_-16px_rgba(15,23,42,0.22)] ${
+              note.isRead ? "border-slate-100 bg-white/90" : "border-blue-200 bg-gradient-to-br from-blue-50 to-white"
             }`}
           >
             <div className="flex items-start justify-between gap-3">
-              <div>
-                <h3 className="font-semibold text-slate-900">{note.title}</h3>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <span className={`flex h-8 w-8 items-center justify-center rounded-full ${note.isRead ? "bg-slate-100 text-slate-500" : "bg-white text-blue-700 shadow-sm"}`}>
+                    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.4-1.4A2 2 0 0 1 18 14.17V11a6 6 0 1 0-12 0v3.17c0 .53-.21 1.04-.59 1.41L4 17h5" />
+                    </svg>
+                  </span>
+                  <h3 className="font-semibold text-slate-900">{note.title}</h3>
+                </div>
                 <p className="mt-1 text-sm text-slate-700">{note.body}</p>
                 <p className="mt-2 text-xs text-slate-500">
                   {new Date(note.createdAt).toLocaleString()}

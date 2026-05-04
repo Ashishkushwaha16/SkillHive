@@ -18,12 +18,12 @@ const faqs = [
 const FAQ = () => {
   return (
     <PageLayout title="FAQ" subtitle="Quick answers for common SkillHive questions.">
-      <div className="ui-card p-6">
-        <div className="space-y-5">
-          {faqs.map((item) => (
-            <div key={item.question} className="rounded-xl border border-slate-200 p-4">
-              <h3 className="text-lg font-semibold text-slate-900">{item.question}</h3>
-              <p className="mt-2 text-slate-600">{item.answer}</p>
+      <div className="rounded-2xl border border-slate-100 bg-white p-8 md:p-10 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.08)]">
+        <div className="space-y-4">
+          {faqs.map((item, idx) => (
+            <div key={item.question} className="rounded-lg border border-slate-100 bg-gradient-to-br from-white to-slate-50 p-5 shadow-sm hover:shadow-md hover:border-blue-300 transition-all duration-200">
+              <h3 className="text-lg font-bold text-slate-900">📄 {item.question}</h3>
+              <p className="mt-2.5 text-slate-700 leading-6">→ {item.answer}</p>
             </div>
           ))}
         </div>

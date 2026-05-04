@@ -181,31 +181,31 @@ const ChatBot = () => {
   };
 
   return (
-    <section className="mt-6 flex flex-col rounded-xl border border-slate-200 bg-white shadow-sm">
-      <div className="flex flex-col gap-4 border-b border-slate-200 px-6 py-4 md:flex-row md:items-center md:justify-between">
+    <section className="mt-6 flex flex-col rounded-2xl border border-slate-100 bg-white shadow-[0_10px_30px_-10px_rgba(0,0,0,0.08)]">
+      <div className="flex flex-col gap-4 border-b border-slate-100 px-6 py-5 md:flex-row md:items-center md:justify-between bg-gradient-to-br from-slate-50 to-white">
         <div>
-          <h3 className="text-lg font-bold text-slate-900">🤖 Support AI ChatBot</h3>
-          <p className="text-xs text-slate-500">
+          <h3 className="text-lg font-bold text-slate-950">🤖 Support AI ChatBot</h3>
+          <p className="text-xs text-slate-600">
             Use two sections: AI Assistant (ChatGPT or Gemini) and AI Search Engine (local app support).
           </p>
         </div>
         <button
           onClick={clearChat}
-          className="text-xs font-semibold text-slate-600 underline hover:text-slate-900"
+          className="text-xs font-semibold text-blue-600 hover:text-blue-700 transition-colors underline decoration-transparent hover:decoration-blue-600"
         >
           Clear Current Section
         </button>
       </div>
 
-      <div className="border-b border-slate-200 px-6 py-4">
+      <div className="border-b border-slate-100 px-6 py-5">
         <p className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Sections</p>
         <div className="flex flex-wrap gap-2">
           <button
             type="button"
             onClick={() => setMode("assistant")}
-            className={`rounded-full border px-4 py-2 text-sm font-semibold transition-colors ${
+            className={`rounded-lg border px-4 py-2.5 text-sm font-semibold transition-all duration-200 ${
               mode === "assistant"
-                ? "border-blue-600 bg-blue-50 text-blue-800"
+                ? "border-blue-600 bg-gradient-to-br from-blue-50 to-blue-100/50 text-blue-800 shadow-sm"
                 : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50"
             }`}
           >
@@ -214,9 +214,9 @@ const ChatBot = () => {
           <button
             type="button"
             onClick={() => setMode("search")}
-            className={`rounded-full border px-4 py-2 text-sm font-semibold transition-colors ${
+            className={`rounded-lg border px-4 py-2.5 text-sm font-semibold transition-all duration-200 ${
               mode === "search"
-                ? "border-emerald-600 bg-emerald-50 text-emerald-800"
+                ? "border-emerald-600 bg-gradient-to-br from-emerald-50 to-emerald-100/50 text-emerald-800 shadow-sm"
                 : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50"
             }`}
           >
@@ -226,7 +226,7 @@ const ChatBot = () => {
 
         {mode === "assistant" && (
           <>
-            <p className="mb-3 mt-4 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Provider</p>
+            <p className="mb-3 mt-5 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Provider</p>
             <div className="flex flex-wrap gap-2">
               {assistantProviderOptions.map((option) => {
                 const isSelected = assistantProvider === option.id;
@@ -235,9 +235,9 @@ const ChatBot = () => {
                     key={option.id}
                     type="button"
                     onClick={() => setAssistantProvider(option.id)}
-                    className={`rounded-full border px-3 py-2 text-left transition-colors ${
+                    className={`rounded-lg border px-3 py-2 text-left transition-all duration-200 ${
                       isSelected
-                        ? "border-blue-600 bg-blue-50 text-blue-800"
+                        ? "border-blue-600 bg-gradient-to-br from-blue-50 to-blue-100/50 text-blue-800 shadow-sm"
                         : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50"
                     }`}
                   >
@@ -253,20 +253,20 @@ const ChatBot = () => {
         )}
 
         {mode === "search" && (
-          <div className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-800">
-            AI Search Engine uses only SkillHive knowledge base content to solve app-related issues. No external provider key is required.
+          <div className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50/80 backdrop-blur-sm p-3.5 text-xs text-emerald-800 font-medium">
+            ✓ AI Search Engine uses only SkillHive knowledge base content to solve app-related issues. No external provider key is required.
           </div>
         )}
 
-        <p className="mt-3 text-xs text-slate-500">
-          Selected: <span className="font-semibold text-slate-700">{providerLabel}</span>
+        <p className="mt-4 text-xs text-slate-600">
+          Selected: <span className="font-semibold text-slate-900">{providerLabel}</span>
         </p>
       </div>
 
       <div className="flex-1 overflow-y-auto p-6" style={{ minHeight: "400px", maxHeight: "500px" }}>
         {error && (
-          <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3">
-            <p className="text-sm text-red-700">{error}</p>
+          <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700 font-medium shadow-sm">
+            ⚠️ {error}
           </div>
         )}
 
@@ -277,13 +277,13 @@ const ChatBot = () => {
               className={`flex ${msg.type === "user" ? "justify-end" : "justify-start"}`}
             >
               <div
-                className={`max-w-xs rounded-lg px-4 py-2.5 text-sm leading-6 ${
+                className={`max-w-xs rounded-xl px-4 py-3 text-sm leading-6 transition-all duration-200 shadow-sm ${
                   msg.type === "user"
-                    ? "bg-blue-600 text-white"
+                    ? "bg-gradient-to-br from-blue-600 to-blue-700 text-white"
                     : msg.isError
-                      ? "border border-red-300 bg-red-100 text-red-900"
+                      ? "border border-red-300 bg-red-50 text-red-900"
                       : msg.flagged
-                        ? "border border-amber-300 bg-amber-100 text-amber-900"
+                        ? "border border-amber-300 bg-amber-50 text-amber-900"
                         : "bg-slate-100 text-slate-900"
                 }`}
               >
@@ -293,7 +293,7 @@ const ChatBot = () => {
                     ⚠️ Flagged for Admin Review
                   </p>
                 )}
-                <p className="mt-1.5 text-xs opacity-70">
+                <p className="mt-2 text-xs opacity-70">
                   {msg.timestamp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                 </p>
               </div>
@@ -302,8 +302,8 @@ const ChatBot = () => {
 
           {isLoading && (
             <div className="flex justify-start">
-              <div className="rounded-lg bg-slate-100 px-4 py-2.5 text-sm text-slate-600">
-                <span className="mr-2 inline-block h-2 w-2 animate-pulse rounded-full bg-slate-400"></span>
+              <div className="rounded-xl bg-slate-100 px-4 py-3 text-sm text-slate-700 font-medium shadow-sm">
+                <span className="mr-2 inline-block h-2 w-2 animate-pulse rounded-full bg-slate-500"></span>
                 Thinking...
               </div>
             </div>
@@ -313,7 +313,7 @@ const ChatBot = () => {
         </div>
       </div>
 
-      <div className="border-t border-slate-200 px-6 py-4">
+      <div className="border-t border-slate-100 bg-gradient-to-br from-white to-slate-50/50 px-6 py-5">
         {mode === "search" && (
           <div className="mb-3 flex flex-wrap gap-2">
             {searchQuickIssues.map((issue) => (
@@ -322,14 +322,14 @@ const ChatBot = () => {
                 type="button"
                 onClick={() => sendMessage(issue.prompt)}
                 disabled={isLoading}
-                className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-800 transition-colors hover:border-emerald-300 hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-50"
+                className="rounded-lg border border-emerald-200 bg-emerald-50/80 px-3 py-2 text-xs font-semibold text-emerald-800 transition-all duration-200 hover:border-emerald-300 hover:bg-emerald-100 hover:shadow-sm disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {issue.label}
               </button>
             ))}
           </div>
         )}
-        <div className="flex gap-2">
+        <div className="flex gap-3">
           <textarea
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
@@ -339,19 +339,19 @@ const ChatBot = () => {
                 ? "Describe your app issue (login, profile, feedback, messages, etc.)..."
                 : "Ask about attendance, guidelines, tasks, or any SkillHive topic..."
             }
-            className="flex-1 resize-none rounded-lg border border-slate-300 px-4 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+            className="flex-1 resize-none rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white focus:border-transparent transition-all duration-200 font-medium"
             rows="2"
             disabled={isLoading}
           />
           <button
             onClick={sendMessage}
             disabled={isLoading || !inputValue.trim()}
-            className="rounded-lg bg-blue-600 px-4 py-2 font-semibold text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-lg bg-gradient-to-r from-blue-600 to-blue-700 px-4 py-3 font-semibold text-white transition-all duration-200 hover:shadow-[0_4px_12px_-4px_rgba(37,99,235,0.4)] active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 whitespace-nowrap"
           >
             Send
           </button>
         </div>
-        <p className="mt-2 text-xs text-slate-500">
+        <p className="mt-3 text-xs text-slate-600">
           💡 Tip: Each section keeps its own chat history. Switch sections anytime without losing previous messages.
         </p>
       </div>

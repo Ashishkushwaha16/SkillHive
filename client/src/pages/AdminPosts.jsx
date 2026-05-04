@@ -61,8 +61,11 @@ const AdminPosts = () => {
       title="Admin Posts"
       subtitle="Create and publish home feed posts directly from the admin panel."
     >
-      <section className="ui-card p-6">
-        <h2 className="text-xl font-bold text-slate-900">Create Home Feed Post</h2>
+      <section className="rounded-3xl border border-slate-100 bg-white/90 p-6 shadow-[0_16px_50px_-24px_rgba(15,23,42,0.22)] backdrop-blur">
+        <div className="inline-flex rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-blue-700">
+          Composer
+        </div>
+        <h2 className="mt-3 text-xl font-bold text-slate-900">Create Home Feed Post</h2>
         <form onSubmit={handleSubmit} className="mt-4 space-y-3">
           <div>
             <label htmlFor="post-title" className="mb-1 block text-sm font-semibold text-slate-700">
@@ -108,7 +111,7 @@ const AdminPosts = () => {
         ) : null}
       </section>
 
-      <section className="ui-card mt-6 p-6">
+      <section className="mt-6 rounded-3xl border border-slate-100 bg-gradient-to-br from-white via-slate-50/60 to-white p-6 shadow-[0_16px_50px_-24px_rgba(15,23,42,0.22)] backdrop-blur">
         <h2 className="text-xl font-bold text-slate-900">Published Posts</h2>
         {loading ? <p className="mt-3 text-sm text-slate-600">Loading posts...</p> : null}
 
@@ -118,7 +121,7 @@ const AdminPosts = () => {
 
         <div className="mt-4 space-y-4">
           {posts.map((post) => (
-            <article key={post._id} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+            <article key={post._id} className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
               <h3 className="text-lg font-bold text-slate-900">{post.title}</h3>
               <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-700">{post.description}</p>
               <p className="mt-2 text-xs font-semibold uppercase tracking-[0.1em] text-slate-500">

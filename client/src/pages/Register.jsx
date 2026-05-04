@@ -63,36 +63,39 @@ const Register = () => {
   };
 
   return (
-    <div className="grid w-full gap-6 lg:grid-cols-[0.95fr,1.05fr]">
-      <div className="ui-card-soft hidden min-h-[32rem] flex-col justify-between p-8 text-slate-950 lg:flex">
+    <div className="mx-auto grid w-full max-w-6xl gap-6 lg:grid-cols-[0.95fr,1.05fr]">
+      <div className="hidden min-h-[32rem] flex-col justify-between rounded-3xl bg-gradient-to-br from-emerald-600 via-emerald-700 to-emerald-800 p-8 text-white lg:flex shadow-[0_20px_40px_-10px_rgba(16,185,129,0.3)]">
         <div>
-          <div className="inline-flex rounded-full bg-white px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-blue-700 shadow-sm">
+          <div className="inline-flex rounded-full bg-white/20 backdrop-blur-sm px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-white shadow-sm border border-white/30">
             Join SkillHive
           </div>
-          <h2 className="mt-6 max-w-sm text-4xl font-black tracking-tight">
+          <h2 className="mt-8 max-w-sm text-2xl sm:text-3xl font-black tracking-tight">
             Build a profile that actually helps people find you.
           </h2>
-          <p className="mt-4 max-w-md text-sm leading-6 text-slate-600">
+          <p className="mt-4 max-w-md text-sm leading-7 text-emerald-50">
             Add your skills, connect with the right people, and keep your learning activity organized in one place.
           </p>
         </div>
 
         <div className="grid gap-3">
-          <div className="rounded-2xl border border-white/80 bg-white p-4 shadow-sm">
-            Fast profile setup with email and password.
+          <div className="rounded-xl border border-white/20 bg-white/10 backdrop-blur-sm p-4 text-sm font-medium text-white hover:bg-white/15 transition-all duration-200">
+            ✓ Fast profile setup with email and password
           </div>
-          <div className="rounded-2xl border border-white/80 bg-white p-4 shadow-sm">
-            Skill-based discovery and connection requests.
+          <div className="rounded-xl border border-white/20 bg-white/10 backdrop-blur-sm p-4 text-sm font-medium text-white hover:bg-white/15 transition-all duration-200">
+            ✓ Skill-based discovery and connection requests
           </div>
-          <div className="rounded-2xl border border-white/80 bg-white p-4 shadow-sm">
-            A focused, low-noise learning network.
+          <div className="rounded-xl border border-white/20 bg-white/10 backdrop-blur-sm p-4 text-sm font-medium text-white hover:bg-white/15 transition-all duration-200">
+            ✓ A focused, low-noise learning network
           </div>
         </div>
       </div>
 
-      <div className="ui-card w-full p-8 md:p-10">
-        <div className="mb-6">
-          <h2 className="text-3xl font-black tracking-tight text-slate-950">Create Account</h2>
+      <div className="w-full rounded-3xl border border-slate-100 bg-white/90 p-6 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.08)] backdrop-blur sm:p-8 md:p-10">
+        <div className="mb-8">
+          <div className="inline-flex rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-700">
+            Join SkillHive
+          </div>
+          <h2 className="text-xl sm:text-2xl font-black tracking-tight bg-gradient-to-r from-emerald-950 to-emerald-700 bg-clip-text text-transparent">Create Account</h2>
           <p className="mt-2 text-sm text-slate-600">Start learning and mentoring on SkillHive.</p>
         </div>
 
@@ -102,8 +105,8 @@ const Register = () => {
             name="name"
             value={formData.name}
             onChange={handleChange}
-            placeholder="Name"
-            className="ui-input"
+            placeholder="Full Name"
+            className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium text-slate-900 placeholder-slate-500 transition-all duration-200 focus:border-emerald-500 focus:bg-white focus:outline-none focus:ring-4 focus:ring-emerald-100"
             required
           />
 
@@ -113,7 +116,7 @@ const Register = () => {
             value={formData.email}
             onChange={handleChange}
             placeholder="Email"
-            className="ui-input"
+            className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium text-slate-900 placeholder-slate-500 transition-all duration-200 focus:border-emerald-500 focus:bg-white focus:outline-none focus:ring-4 focus:ring-emerald-100"
             required
           />
 
@@ -123,14 +126,14 @@ const Register = () => {
             value={formData.password}
             onChange={handleChange}
             placeholder="Password"
-            className="ui-input"
+            className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium text-slate-900 placeholder-slate-500 transition-all duration-200 focus:border-emerald-500 focus:bg-white focus:outline-none focus:ring-4 focus:ring-emerald-100"
             required
           />
 
           <button
             type="submit"
             disabled={loading || googleLoading}
-            className="ui-btn-primary w-full rounded-full py-3.5"
+            className="w-full rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-700 px-4 py-3.5 text-sm font-semibold text-white transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_8px_20px_-4px_rgba(16,185,129,0.4)] active:scale-95 disabled:cursor-not-allowed disabled:opacity-70"
           >
             {loading ? "Creating account..." : "Register"}
           </button>
@@ -148,11 +151,11 @@ const Register = () => {
           </div>
         ) : null}
 
-        {message && <p className="mt-4 text-sm text-emerald-600">{message}</p>}
-        {error && <p className="mt-4 text-sm text-rose-600">{error}</p>}
+        {message && <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm font-medium text-emerald-700">✓ {message}</div>}
+        {error && <div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm font-medium text-red-700">✕ {error}</div>}
 
         <p className="mt-6 text-center text-sm text-slate-600">
-          Already have an account? <Link to="/login" className="font-semibold text-blue-700 hover:text-blue-800">Login</Link>
+          Already have an account? <Link to="/login" className="font-semibold text-blue-600 transition-colors hover:text-blue-700">Login</Link>
         </p>
       </div>
     </div>
